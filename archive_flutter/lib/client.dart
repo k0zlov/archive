@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:archive_client/archive_client.dart';
+import 'package:flutter/foundation.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 // When you are running the app on a physical device, you need to set the
 // server URL to the IP address of your computer. You can find the IP
@@ -25,5 +27,19 @@ late final Client client;
 
 Future<void> initializeClient() async {
   client = Client(await serverUrl)
-    ..connectivityMonitor = FlutterConnectivityMonitor();
+    ..connectivityMonitor = FlutterConnectivityMonitor()
+    ..authSessionManager =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS
+        ? FlutterAuthSessionManager(
+            storage: SecureClientAuthSuccessStorage(
+              secureStorage: const FlutterSecureStorage(
+                mOptions: MacOsOptions(
+                  usesDataProtectionKeychain: false,
+                  accessibility: KeychainAccessibility.first_unlock_this_device,
+                ),
+              ),
+            ),
+          )
+        : FlutterAuthSessionManager();
+  await client.auth.initialize();
 }

@@ -1,49 +1,35 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'client.dart';
-import 'screens/greetings_screen.dart';
+import 'ui/auth_screen.dart';
+import 'ui/archive_shell.dart';
+import 'ui/theme.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeClient();
   runApp(const MyApp());
 }
 
-/// Builds a theme for the given [brightness].
-ThemeData _buildTheme(Brightness brightness) {
-  return ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
-      brightness: brightness,
-    ),
-  );
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Serverpod Demo',
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
-      home: const MyHomePage(title: 'Serverpod Example'),
-    );
-  }
-}
-
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: const GreetingsScreen(),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'Archive',
+    debugShowCheckedModeBanner: false,
+    theme: archiveTheme(),
+    locale: const Locale('uk'),
+    supportedLocales: const [Locale('uk')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    home: ValueListenableBuilder(
+      valueListenable: client.auth.authInfoListenable,
+      builder: (context, info, _) => info == null
+          ? const AuthScreen()
+          : ArchiveShell(
+              key: ValueKey(info.authUserId.toString()),
+              userId: info.authUserId.toString(),
+            ),
+    ),
+  );
 }

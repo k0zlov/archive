@@ -1,0 +1,15 @@
+class: ArchiveImportJob
+serverOnly: true
+table: archive_import_job
+fields:
+  userId: String
+  module: String
+  status: String, default='open'
+  receivedRows: int, default=0
+  skippedRows: int, default=0
+  lastOffset: int, default=-1
+  lastBatchJson: String, default=''
+  replaceExisting: bool, default=false
+  sourceNamesJson: String, default='[]'
+  resultJson: String, default='{}'
+  createdAt: DateTime, default=now

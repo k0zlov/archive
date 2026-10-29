@@ -9,7 +9,10 @@ environment:
 resolution: workspace
 
 dependencies:
+  archive_shared:
+    path: ../archive_shared
   serverpod: 4.0.4
+  serverpod_auth_idp_server: 4.0.4
   serverpod_cloud_storage: 4.0.4
 
 dev_dependencies:
@@ -56,8 +59,9 @@ serverpod:
   #     API_URL=https://admin.example.com
   #     FLAVOR=production
   flutter_apps:
-    archive:
+    desktop:
       path: ../archive_flutter
-      displayName: "Archive app"
+      displayName: "Archive"
       auto_launch: true
+      device: macos
       target: lib/driver.dart

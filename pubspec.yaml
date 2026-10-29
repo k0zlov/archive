@@ -8,4 +8,5 @@ workspace:
   - archive_client
   - archive_server
   - archive_flutter
+  - archive_shared
 

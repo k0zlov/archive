@@ -1,0 +1,21 @@
+### Per-account authorization, evaluated on every archive request.
+class: ArchiveMember
+serverOnly: true
+table: archive_member
+fields:
+  userId: String
+  email: String
+  login: String?
+  passwordChangeRequired: bool, default=false
+  displayName: String
+  role: String, default='pending'
+  managementAccess: bool, default=false
+  courtAccess: bool, default=false
+  createdAt: DateTime, default=now
+indexes:
+  archive_member_user_idx:
+    fields: userId
+    unique: true
+  archive_member_login_idx:
+    fields: login
+    unique: true

@@ -1,0 +1,13 @@
+class: ArchiveImportRow
+serverOnly: true
+table: archive_import_row
+fields:
+  jobId: int, relation(parent=archive_import_job, onDelete=Cascade)
+  identityKey: String
+  reference: String
+  proceeding: String
+  valuesJson: String
+indexes:
+  archive_import_row_identity_idx:
+    fields: jobId, identityKey
+    unique: true

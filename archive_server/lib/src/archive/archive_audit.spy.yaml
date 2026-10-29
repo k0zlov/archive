@@ -1,0 +1,14 @@
+### History of changes to archive cards and account permissions.
+class: ArchiveAudit
+serverOnly: true
+table: archive_audit
+fields:
+  actorId: String
+  action: String
+  target: String
+  actorEmail: String, default=''
+  module: String, default=''
+  beforeJson: String, default='{}'
+  afterJson: String, default='{}'
+  detailsJson: String, default='{}'
+  createdAt: DateTime, default=now

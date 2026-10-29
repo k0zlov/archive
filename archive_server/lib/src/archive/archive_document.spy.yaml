@@ -1,0 +1,14 @@
+### A nomenclature document stored in the server database.
+class: ArchiveDocument
+serverOnly: true
+table: archive_document
+fields:
+  title: String
+  fileName: String
+  kind: String
+  year: int
+  content: ByteData
+  createdBy: String
+  createdAt: DateTime, default=now
+  deletedAt: DateTime?
+  deletedBy: String?

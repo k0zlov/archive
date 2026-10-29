@@ -1,0 +1,23 @@
+### A versioned archive card. Values are validated with archive_shared.
+class: ArchiveRecord
+serverOnly: true
+table: archive_record
+fields:
+  module: String
+  identityKey: String
+  reference: String
+  proceeding: String
+  valuesJson: String
+  version: int, default=1
+  createdBy: String
+  updatedBy: String
+  createdAt: DateTime, default=now
+  updatedAt: DateTime, default=now
+  deletedAt: DateTime?
+  deletedBy: String?
+indexes:
+  archive_record_identity_idx:
+    fields: identityKey
+    unique: true
+  archive_record_module_active_idx:
+    fields: module, deletedAt

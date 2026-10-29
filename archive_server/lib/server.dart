@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:serverpod_cloud_storage/serverpod_cloud_storage.dart';
+import 'package:serverpod_auth_idp_server/core.dart';
+import 'package:serverpod_auth_idp_server/providers/email.dart';
 
 import 'src/cache_busting.dart';
 import 'src/generated/serverpod.dart';
@@ -11,6 +13,13 @@ void run(List<String> args) async {
   // Initialize Serverpod. The generated Serverpod class is already connected
   // with your project's generated code.
   final pod = Serverpod(args);
+
+  pod.initializeAuthServices(
+    tokenManagerBuilders: [JwtConfigFromPasswords()],
+    identityProviderBuilders: [
+      EmailIdpConfigFromPasswords(),
+    ],
+  );
 
   // Serve all files in the web/static relative directory under /web.
   // These are used by the default web page.

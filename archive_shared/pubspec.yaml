@@ -1,0 +1,8 @@
+name: archive_shared
+description: Shared archive fields, validation and retention rules.
+publish_to: none
+environment:
+  sdk: ^3.12.2
+resolution: workspace
+dev_dependencies:
+  test: ^1.25.5

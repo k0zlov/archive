@@ -1,2 +1,31 @@
+archive:
+  - profile:
+  - records:
+  - recordRevision:
+  - saveRecord:
+  - importRecords:
+  - beginImport:
+  - appendImportRows:
+  - commitImport:
+  - cancelImport:
+  - relatedRecords:
+  - members:
+  - setMemberAccess:
+  - documents:
+  - uploadDocument:
+  - downloadDocument:
+  - deleteRecord:
+  - restoreRecord:
+  - deleteDocument:
+  - restoreDocument:
+  - auditEntries:
+account:
+  - changePassword:
+  - resetPassword:
+jwtRefresh:
+  - refreshAccessToken:
+login:
+  - login:
+  - register:
 greeting:
   - hello:

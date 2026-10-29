@@ -14,8 +14,313 @@ import 'dart:async' as _ida;
 import 'package:archive_client/src/protocol/greetings/greeting.dart'
     as _ioqiwtc5;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
+    as _iacc;
+import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
+    as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'protocol.dart' as _il2as5qe;
+
+/// Server-side authorization is rechecked for every operation, including reads.
+/// {@category Endpoint}
+class EndpointArchive extends _isc.EndpointRef {
+  EndpointArchive(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'archive';
+
+  _ida.Future<String> profile() => caller.callServerEndpoint<String>(
+    'archive',
+    'profile',
+    {},
+  );
+
+  _ida.Future<String> records(int afterId) => caller.callServerEndpoint<String>(
+    'archive',
+    'records',
+    {'afterId': afterId},
+  );
+
+  /// Every committed card mutation writes its audit event in the same transaction.
+  _ida.Future<String> recordRevision() => caller.callServerEndpoint<String>(
+    'archive',
+    'recordRevision',
+    {},
+  );
+
+  _ida.Future<String> saveRecord(
+    String module,
+    String valuesJson,
+    int? id,
+    int? version,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'saveRecord',
+    {
+      'module': module,
+      'valuesJson': valuesJson,
+      'id': id,
+      'version': version,
+    },
+  );
+
+  _ida.Future<String> importRecords(
+    String module,
+    List<String> rows,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'importRecords',
+    {
+      'module': module,
+      'rows': rows,
+    },
+  );
+
+  _ida.Future<String> beginImport(
+    String module, {
+    required bool replaceExisting,
+    required List<String> sourceNames,
+  }) => caller.callServerEndpoint<String>(
+    'archive',
+    'beginImport',
+    {
+      'module': module,
+      'replaceExisting': replaceExisting,
+      'sourceNames': sourceNames,
+    },
+  );
+
+  _ida.Future<String> appendImportRows(
+    int jobId,
+    int offset,
+    List<String> rows,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'appendImportRows',
+    {
+      'jobId': jobId,
+      'offset': offset,
+      'rows': rows,
+    },
+  );
+
+  _ida.Future<String> commitImport(int jobId) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'commitImport',
+        {'jobId': jobId},
+      );
+
+  _ida.Future<String> cancelImport(int jobId) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'cancelImport',
+        {'jobId': jobId},
+      );
+
+  _ida.Future<String> relatedRecords(int id) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'relatedRecords',
+        {'id': id},
+      );
+
+  _ida.Future<String> members() => caller.callServerEndpoint<String>(
+    'archive',
+    'members',
+    {},
+  );
+
+  _ida.Future<String> setMemberAccess(
+    int memberId,
+    String role,
+    bool managementAccess,
+    bool courtAccess,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'setMemberAccess',
+    {
+      'memberId': memberId,
+      'role': role,
+      'managementAccess': managementAccess,
+      'courtAccess': courtAccess,
+    },
+  );
+
+  _ida.Future<String> documents() => caller.callServerEndpoint<String>(
+    'archive',
+    'documents',
+    {},
+  );
+
+  _ida.Future<String> uploadDocument(
+    String title,
+    String fileName,
+    int year,
+    String contentBase64,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'uploadDocument',
+    {
+      'title': title,
+      'fileName': fileName,
+      'year': year,
+      'contentBase64': contentBase64,
+    },
+  );
+
+  _ida.Future<String> downloadDocument(int id) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'downloadDocument',
+        {'id': id},
+      );
+
+  _ida.Future<String> deleteRecord(
+    int id,
+    int version,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'deleteRecord',
+    {
+      'id': id,
+      'version': version,
+    },
+  );
+
+  _ida.Future<String> restoreRecord(int id) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'restoreRecord',
+        {'id': id},
+      );
+
+  _ida.Future<String> deleteDocument(int id) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'deleteDocument',
+        {'id': id},
+      );
+
+  _ida.Future<String> restoreDocument(int id) =>
+      caller.callServerEndpoint<String>(
+        'archive',
+        'restoreDocument',
+        {'id': id},
+      );
+
+  _ida.Future<String> auditEntries(
+    int beforeId,
+    String query,
+  ) => caller.callServerEndpoint<String>(
+    'archive',
+    'auditEntries',
+    {
+      'beforeId': beforeId,
+      'query': query,
+    },
+  );
+}
+
+/// {@category Endpoint}
+class EndpointAccount extends _isc.EndpointRef {
+  EndpointAccount(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'account';
+
+  _ida.Future<_iacc.AuthSuccess> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) => caller.callServerEndpoint<_iacc.AuthSuccess>(
+    'account',
+    'changePassword',
+    {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    },
+  );
+
+  /// A one-time displayed temporary password; never written to the audit journal.
+  _ida.Future<String> resetPassword(int memberId) =>
+      caller.callServerEndpoint<String>(
+        'account',
+        'resetPassword',
+        {'memberId': memberId},
+      );
+}
+
+/// {@category Endpoint}
+class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
+  EndpointJwtRefresh(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'jwtRefresh';
+
+  /// Creates a new token pair for the given [refreshToken].
+  ///
+  /// If [refreshToken] is omitted, cookie-mode web clients fall back to the
+  /// configured HttpOnly refresh cookie. When neither source is present this
+  /// throws [RefreshTokenNotFoundException], the same public "no usable refresh
+  /// credential" exception used for unknown refresh tokens.
+  ///
+  /// Can throw the following exceptions:
+  /// -[RefreshTokenMalformedException]: refresh token is malformed and could
+  ///   not be parsed. Not expected to happen for tokens issued by the server.
+  /// -[RefreshTokenNotFoundException]: refresh token is unknown to the server.
+  ///   Either the token was deleted or generated by a different server.
+  /// -[RefreshTokenExpiredException]: refresh token has expired. Will happen
+  ///   only if it has not been used within configured `refreshTokenLifetime`.
+  /// -[RefreshTokenInvalidSecretException]: refresh token is incorrect, meaning
+  ///   it does not refer to the current secret refresh token. This indicates
+  ///   either a malfunctioning client or a malicious attempt by someone who has
+  ///   obtained the refresh token. In this case the underlying refresh token
+  ///   will be deleted, and access to it will expire fully when the last access
+  ///   token is elapsed.
+  ///
+  /// This endpoint is unauthenticated, meaning the client won't include any
+  /// authentication information with the call.
+  @override
+  _ida.Future<_iacc.AuthSuccess> refreshAccessToken({String? refreshToken}) =>
+      caller.callServerEndpoint<_iacc.AuthSuccess>(
+        'jwtRefresh',
+        'refreshAccessToken',
+        {'refreshToken': refreshToken},
+        authenticated: false,
+      );
+}
+
+/// {@category Endpoint}
+class EndpointLogin extends _isc.EndpointRef {
+  EndpointLogin(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'login';
+
+  _ida.Future<_iacc.AuthSuccess> login(
+    String login,
+    String password,
+  ) => caller.callServerEndpoint<_iacc.AuthSuccess>(
+    'login',
+    'login',
+    {
+      'login': login,
+      'password': password,
+    },
+  );
+
+  _ida.Future<_iacc.AuthSuccess> register(
+    String login,
+    String password,
+  ) => caller.callServerEndpoint<_iacc.AuthSuccess>(
+    'login',
+    'register',
+    {
+      'login': login,
+      'password': password,
+    },
+  );
+}
 
 /// This is an example endpoint that returns a greeting message through
 /// its [hello] method.
@@ -33,6 +338,17 @@ class EndpointGreeting extends _isc.EndpointRef {
         'hello',
         {'name': name},
       );
+}
+
+class Modules {
+  Modules(Client client) {
+    serverpod_auth_idp = _iaic.Caller(client);
+    serverpod_auth_core = _iacc.Caller(client);
+  }
+
+  late final _iaic.Caller serverpod_auth_idp;
+
+  late final _iacc.Caller serverpod_auth_core;
 }
 
 class Client extends _isc.ServerpodClientShared {
@@ -62,14 +378,38 @@ class Client extends _isc.ServerpodClientShared {
              disconnectStreamsOnLostInternetConnection,
          httpClientOverride: httpClientOverride,
        ) {
+    archive = EndpointArchive(this);
+    account = EndpointAccount(this);
+    jwtRefresh = EndpointJwtRefresh(this);
+    login = EndpointLogin(this);
     greeting = EndpointGreeting(this);
+    modules = Modules(this);
   }
+
+  late final EndpointArchive archive;
+
+  late final EndpointAccount account;
+
+  late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointLogin login;
 
   late final EndpointGreeting greeting;
 
-  @override
-  Map<String, _isc.EndpointRef> get endpointRefLookup => {'greeting': greeting};
+  late final Modules modules;
 
   @override
-  Map<String, _isc.ModuleEndpointCaller> get moduleLookup => {};
+  Map<String, _isc.EndpointRef> get endpointRefLookup => {
+    'archive': archive,
+    'account': account,
+    'jwtRefresh': jwtRefresh,
+    'login': login,
+    'greeting': greeting,
+  };
+
+  @override
+  Map<String, _isc.ModuleEndpointCaller> get moduleLookup => {
+    'serverpod_auth_idp': modules.serverpod_auth_idp,
+    'serverpod_auth_core': modules.serverpod_auth_core,
+  };
 }
