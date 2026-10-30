@@ -215,6 +215,101 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
     );
   });
 
+  Future<void> applyArchiveDelta(
+    String account,
+    Map<String, dynamic> delta,
+  ) => transaction(() async {
+    final removed = List<int>.from(delta['removedIds'] as List? ?? []);
+    if (removed.isNotEmpty) {
+      await (delete(
+            localRecords,
+          )..where((t) => t.account.equals(account) & t.remoteId.isIn(removed)))
+          .go();
+    }
+    await batch((b) {
+      for (final r in delta['records'] as List? ?? []) {
+        b.insert(
+          localRecords,
+          LocalRecordsCompanion.insert(
+            account: account,
+            remoteId: r['id'] as int,
+            module: r['module'] as String,
+            payload: jsonEncode(r),
+            updatedAtMillis: Value(
+              DateTime.parse(r['updatedAt'] as String).millisecondsSinceEpoch,
+            ),
+            searchText: Value(recordSearchText(r['values'] as Map)),
+            retentionType: Value(
+              (r['values'] as Map)['retentionType'] as String? ?? '',
+            ),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      for (final e in delta['audit'] as List? ?? []) {
+        b.insert(
+          localAuditEvents,
+          LocalAuditEventsCompanion.insert(
+            account: account,
+            remoteId: e['id'] as int,
+            payload: jsonEncode(e),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+    if (delta.containsKey('documents')) {
+      final docs = delta['documents'] as List;
+      final ids = docs.map((d) => d['id'] as int).toList();
+      await (delete(localDocuments)
+            ..where((t) => t.account.equals(account) & t.remoteId.isNotIn(ids)))
+          .go();
+      final files = delta['files'] as Map? ?? {};
+      await batch((b) {
+        for (final d in docs) {
+          b.insert(
+            localDocuments,
+            LocalDocumentsCompanion.insert(
+              account: account,
+              remoteId: d['id'] as int,
+              payload: jsonEncode(d),
+              contents: Value(
+                files['${d['id']}'] == null
+                    ? null
+                    : base64Decode(files['${d['id']}'] as String),
+              ),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+    }
+    if (delta.containsKey('members')) {
+      await (delete(
+        localMembers,
+      )..where((t) => t.account.equals(account))).go();
+      await batch((b) {
+        b.insertAll(localMembers, [
+          for (final m in delta['members'] as List)
+            LocalMembersCompanion.insert(
+              account: account,
+              remoteId: m['id'] as int,
+              payload: jsonEncode(
+                {...Map<String, dynamic>.from(m as Map)}
+                  ..remove('online')
+                  ..remove('activeSessions'),
+              ),
+            ),
+        ]);
+      });
+    }
+    await updateMetadata(
+      account,
+      Map<String, dynamic>.from(delta['profile'] as Map),
+      delta['syncedAt'] as String,
+    );
+  });
+
   Future<String?> readSnapshot(String account) => transaction(() async {
     final meta = await (select(
       localAccounts,
@@ -236,7 +331,9 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
     )..where((t) => t.account.equals(account))).get();
     return jsonEncode({
       'schemaVersion': 1,
-      'profile': jsonDecode(meta.profile),
+      'profile': Map<String, dynamic>.from(jsonDecode(meta.profile) as Map)
+        ..remove('_syncCursor'),
+      'syncCursor': (jsonDecode(meta.profile) as Map)['_syncCursor'],
       'syncedAt': meta.syncedAt,
       'records': records.map((r) => jsonDecode(r.payload)).toList(),
       'documents': documents.map((d) => jsonDecode(d.payload)).toList(),
@@ -256,7 +353,10 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
       await into(localAccounts).insert(
         LocalAccountsCompanion.insert(
           account: account,
-          profile: jsonEncode(snapshot['profile']),
+          profile: jsonEncode({
+            ...Map<String, dynamic>.from(snapshot['profile'] as Map),
+            '_syncCursor': snapshot['syncCursor'],
+          }),
           syncedAt: snapshot['syncedAt'] as String,
         ),
       );

@@ -56,6 +56,9 @@ Future<Object?> _databaseWork(_DatabaseWork work) async {
           work.removedIds,
         );
         return null;
+      case 'delta':
+        await database.applyArchiveDelta(work.account, work.record!);
+        return null;
       case 'metadata':
         await database.updateMetadata(
           work.account,
@@ -105,6 +108,7 @@ class DriftCacheStore
         RecordPageStore,
         RecordPatchStore,
         SnapshotMetadataStore,
+        ArchiveDeltaStore,
         AttachmentCache {
   DriftCacheStore({Future<String> Function()? databasePath})
     : _path = (databasePath ?? _defaultPath)();
@@ -164,6 +168,17 @@ class DriftCacheStore
         record: record,
         removedIds: removedIds,
       ),
+    );
+  }
+
+  @override
+  Future<void> applyArchiveDelta(
+    String account,
+    Map<String, dynamic> delta,
+  ) async {
+    await compute(
+      _databaseWork,
+      _DatabaseWork(await _path, account, 'delta', record: delta),
     );
   }
 

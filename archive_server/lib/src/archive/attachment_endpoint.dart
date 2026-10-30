@@ -1,3 +1,4 @@
+import '../sync/archive_events.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:archive_shared/archive_schema.dart';
@@ -117,7 +118,7 @@ class AttachmentEndpoint extends Endpoint {
         RegExp(r'[/\\\x00-\x1f]').hasMatch(fileName)) {
       throw const FormatException('Некоректна назва або розмір файлу.');
     }
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await lockArchiveRecords(session, tx);
       final actor = await _member(session, tx: tx);
       await _record(session, actor, recordId, write: true, tx: tx);
@@ -157,7 +158,7 @@ class AttachmentEndpoint extends Endpoint {
     if (bytes.isEmpty || bytes.length > chunkSize) {
       throw const FormatException('Некоректна частина файлу.');
     }
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await lockArchiveRecords(session, tx);
       final actor = await _member(session, tx: tx);
       final file = await _file(session, id, tx: tx);
@@ -211,7 +212,7 @@ class AttachmentEndpoint extends Endpoint {
   });
 
   Future<String> finish(Session session, int id) => _respond(() async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await lockArchiveRecords(session, tx);
       final actor = await _member(session, tx: tx);
       final file = await _file(session, id, tx: tx);
@@ -236,7 +237,7 @@ class AttachmentEndpoint extends Endpoint {
         file.copyWith(status: 'ready'),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -252,7 +253,7 @@ class AttachmentEndpoint extends Endpoint {
   });
 
   Future<String> cancel(Session session, int id) => _respond(() async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await lockArchiveRecords(session, tx);
       final actor = await _member(session, tx: tx);
       final file = await _file(session, id, tx: tx);
@@ -300,7 +301,7 @@ class AttachmentEndpoint extends Endpoint {
       _visibility(session, id, false);
   Future<String> _visibility(Session session, int id, bool deleting) =>
       _respond(() async {
-        return session.db.transaction((tx) async {
+        return archiveTransaction(session, (tx) async {
           await lockArchiveRecords(session, tx);
           final actor = await _member(session, tx: tx);
           final file = await _file(session, id, tx: tx);
@@ -322,7 +323,7 @@ class AttachmentEndpoint extends Endpoint {
             deletedBy: deleting ? actor.userId : null,
           );
           await ArchiveAttachment.db.updateRow(session, next, transaction: tx);
-          await ArchiveAudit.db.insertRow(
+          await writeArchiveAudit(
             session,
             archiveChange(
               actor,

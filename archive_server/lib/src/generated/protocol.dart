@@ -27,6 +27,9 @@ import 'archive/archive_member.dart' as _iimtnz49;
 import 'archive/archive_record.dart' as _ifxelgw5;
 import 'auth/archive_auth_exception.dart' as _iaeozbuv;
 import 'greetings/greeting.dart' as _izw8z7ou;
+import 'sync/archive_presence.dart' as _ip0bunzc;
+import 'sync/archive_signal.dart' as _i6zzyckt;
+import 'sync/archive_sync_state.dart' as _iwwu4vqs;
 export 'archive/archive_attachment.dart';
 export 'archive/archive_attachment_chunk.dart';
 export 'archive/archive_audit.dart';
@@ -37,6 +40,9 @@ export 'archive/archive_member.dart';
 export 'archive/archive_record.dart';
 export 'auth/archive_auth_exception.dart';
 export 'greetings/greeting.dart';
+export 'sync/archive_presence.dart';
+export 'sync/archive_signal.dart';
+export 'sync/archive_sync_state.dart';
 
 class Protocol extends _is.DatabaseSerializationManager {
   Protocol._();
@@ -652,6 +658,69 @@ class Protocol extends _is.DatabaseSerializationManager {
       managed: true,
     ),
     _isp.TableDefinition(
+      name: 'archive_presence',
+      dartName: 'ArchivePresence',
+      schema: 'public',
+      module: 'archive',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userId',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'authId',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'expiresAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'archive_presence_user_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'archive_presence_expiry_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'expiresAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
       name: 'archive_record',
       dartName: 'ArchiveRecord',
       schema: 'public',
@@ -775,6 +844,31 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       managed: true,
     ),
+    _isp.TableDefinition(
+      name: 'archive_sync_state',
+      dartName: 'ArchiveSyncState',
+      schema: 'public',
+      module: 'archive',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'resetCursor',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [],
+      managed: true,
+    ),
     ..._iais.Protocol.targetTableDefinitions,
     ..._iacs.Protocol.targetTableDefinitions,
     ..._isp.Protocol.targetTableDefinitions,
@@ -837,6 +931,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _izw8z7ou.Greeting) {
       return _izw8z7ou.Greeting.fromJson(data) as T;
     }
+    if (t == _ip0bunzc.ArchivePresence) {
+      return _ip0bunzc.ArchivePresence.fromJson(data) as T;
+    }
+    if (t == _i6zzyckt.ArchiveSignal) {
+      return _i6zzyckt.ArchiveSignal.fromJson(data) as T;
+    }
+    if (t == _iwwu4vqs.ArchiveSyncState) {
+      return _iwwu4vqs.ArchiveSyncState.fromJson(data) as T;
+    }
     if (t == _is.getType<_iu3d2o8l.ArchiveAttachment?>()) {
       return (data != null ? _iu3d2o8l.ArchiveAttachment.fromJson(data) : null)
           as T;
@@ -879,6 +982,18 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_izw8z7ou.Greeting?>()) {
       return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_ip0bunzc.ArchivePresence?>()) {
+      return (data != null ? _ip0bunzc.ArchivePresence.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i6zzyckt.ArchiveSignal?>()) {
+      return (data != null ? _i6zzyckt.ArchiveSignal.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_iwwu4vqs.ArchiveSyncState?>()) {
+      return (data != null ? _iwwu4vqs.ArchiveSyncState.fromJson(data) : null)
+          as T;
+    }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
     }
@@ -906,6 +1021,9 @@ class Protocol extends _is.DatabaseSerializationManager {
       _ifxelgw5.ArchiveRecord => 'ArchiveRecord',
       _iaeozbuv.ArchiveAuthException => 'ArchiveAuthException',
       _izw8z7ou.Greeting => 'Greeting',
+      _ip0bunzc.ArchivePresence => 'ArchivePresence',
+      _i6zzyckt.ArchiveSignal => 'ArchiveSignal',
+      _iwwu4vqs.ArchiveSyncState => 'ArchiveSyncState',
       _ => null,
     };
   }
@@ -940,6 +1058,12 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'ArchiveAuthException';
       case _izw8z7ou.Greeting():
         return 'Greeting';
+      case _ip0bunzc.ArchivePresence():
+        return 'ArchivePresence';
+      case _i6zzyckt.ArchiveSignal():
+        return 'ArchiveSignal';
+      case _iwwu4vqs.ArchiveSyncState():
+        return 'ArchiveSyncState';
     }
     className = _iais.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -995,6 +1119,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'Greeting') {
       return deserialize<_izw8z7ou.Greeting>(data['data']);
+    }
+    if (dataClassName == 'ArchivePresence') {
+      return deserialize<_ip0bunzc.ArchivePresence>(data['data']);
+    }
+    if (dataClassName == 'ArchiveSignal') {
+      return deserialize<_i6zzyckt.ArchiveSignal>(data['data']);
+    }
+    if (dataClassName == 'ArchiveSyncState') {
+      return deserialize<_iwwu4vqs.ArchiveSyncState>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);
@@ -1053,6 +1186,10 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _iimtnz49.ArchiveMember.t;
       case _ifxelgw5.ArchiveRecord:
         return _ifxelgw5.ArchiveRecord.t;
+      case _ip0bunzc.ArchivePresence:
+        return _ip0bunzc.ArchivePresence.t;
+      case _iwwu4vqs.ArchiveSyncState:
+        return _iwwu4vqs.ArchiveSyncState.t;
     }
     return null;
   }

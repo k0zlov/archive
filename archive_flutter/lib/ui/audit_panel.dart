@@ -24,6 +24,8 @@ const auditActionLabels = {
   'member.create': 'Реєстрація користувача',
   'member.bootstrap': 'Призначення першого адміністратора',
   'member.access': 'Зміна прав доступу',
+  'member.delete': 'Видалення користувача',
+  'record.clear': 'Видалення всіх справ',
   'member.password.change': 'Зміна пароля',
   'member.password.reset': 'Скидання пароля',
   'import.begin': 'Початок імпорту',

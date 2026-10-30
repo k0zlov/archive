@@ -1,6 +1,17 @@
+import 'dart:async';
 import 'package:archive_client/archive_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import '../client.dart';
+
+final _authenticationOperations = <Future<void>>{};
+
+/// A revoked old stream must not clear a replacement session issued during a
+/// password change. No credentials are stored here, only completion signals.
+Future<void> waitForAuthenticationOperations() async {
+  while (_authenticationOperations.isNotEmpty) {
+    await Future.wait(List.of(_authenticationOperations));
+  }
+}
 
 abstract class AuthGateway {
   Future<void> login(String login, String password);
@@ -13,12 +24,19 @@ class ServerpodAuthGateway implements AuthGateway {
   Future<void> _authenticate(
     Future<AuthSuccess> Function(Client source) request,
   ) async {
-    final source = client;
-    final result = await request(source);
-    await serverConnection.updateAuthentication(
-      source,
-      () => source.auth.updateSignedInUser(result),
-    );
+    final completion = Completer<void>();
+    _authenticationOperations.add(completion.future);
+    try {
+      final source = client;
+      final result = await request(source);
+      await serverConnection.updateAuthentication(
+        source,
+        () => source.auth.updateSignedInUser(result),
+      );
+    } finally {
+      _authenticationOperations.remove(completion.future);
+      completion.complete();
+    }
   }
 
   @override

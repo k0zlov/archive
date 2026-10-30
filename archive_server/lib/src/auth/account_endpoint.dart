@@ -1,3 +1,4 @@
+import '../sync/archive_events.dart';
 import 'dart:math';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
@@ -21,7 +22,7 @@ class AccountEndpoint extends Endpoint {
         message: 'Новий пароль має відрізнятися від поточного.',
       );
     }
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await session.db.unsafeExecute(
         'LOCK TABLE archive_member IN SHARE ROW EXCLUSIVE MODE',
         transaction: tx,
@@ -56,7 +57,7 @@ class AccountEndpoint extends Endpoint {
         member.copyWith(passwordChangeRequired: false),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(member, 'member.password.change', member.userId),
         transaction: tx,
@@ -70,9 +71,83 @@ class AccountEndpoint extends Endpoint {
     });
   }
 
+  Future<void> deleteMember(Session session, int memberId) async {
+    String? removedUser;
+    await archiveTransaction(session, (tx) async {
+      await session.db.unsafeExecute(
+        'LOCK TABLE archive_member IN SHARE ROW EXCLUSIVE MODE',
+        transaction: tx,
+      );
+      final actor = await authenticatedArchiveMember(session, transaction: tx);
+      if (actor.role != 'admin' ||
+          actor.passwordChangeRequired ||
+          actor.id == memberId) {
+        throw ArchiveAuthException(
+          message: 'Немає дозволу на видалення користувача.',
+        );
+      }
+      final target = await ArchiveMember.db.findById(
+        session,
+        memberId,
+        transaction: tx,
+      );
+      if (target == null || target.role == 'deleted') {
+        throw ArchiveAuthException(message: 'Користувача не знайдено.');
+      }
+      // Keep an access tombstone: an old signed JWT must never bootstrap a user
+      // again. Credentials, profile and token rows are removed by auth's cascade.
+      await ArchiveMember.db.updateRow(
+        session,
+        target.copyWith(
+          role: 'deleted',
+          login: null,
+          email: '',
+          displayName: 'Видалений користувач',
+          managementAccess: false,
+          courtAccess: false,
+        ),
+        transaction: tx,
+      );
+      await writeArchiveAudit(
+        session,
+        archiveChange(
+          actor,
+          'member.delete',
+          target.userId,
+          before: archiveMemberJson(target),
+        ),
+        transaction: tx,
+      );
+      final userId = UuidValue.fromString(target.userId);
+      await AuthServices.instance.tokenManager.revokeAllTokens(
+        session,
+        authUserId: userId,
+        transaction: tx,
+      );
+      await AuthServices.instance.authUsers.delete(
+        session,
+        authUserId: userId,
+        transaction: tx,
+      );
+      await ArchivePresence.db.deleteWhere(
+        session,
+        where: (t) => t.userId.equals(target.userId),
+        transaction: tx,
+      );
+      removedUser = target.userId;
+    });
+    // Close every live channel after the deletion has committed.
+    await session.messages.authenticationRevoked(
+      removedUser!,
+      RevokedAuthenticationUser(),
+    );
+    await notifyArchive(session, 'data');
+    await notifyArchive(session, 'presence');
+  }
+
   /// A one-time displayed temporary password; never written to the audit journal.
   Future<String> resetPassword(Session session, int memberId) async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await session.db.unsafeExecute(
         'LOCK TABLE archive_member IN SHARE ROW EXCLUSIVE MODE',
         transaction: tx,
@@ -90,7 +165,7 @@ class AccountEndpoint extends Endpoint {
         memberId,
         transaction: tx,
       );
-      if (target == null) {
+      if (target == null || target.role == 'deleted') {
         throw ArchiveAuthException(message: 'Користувача не знайдено.');
       }
       const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -116,7 +191,7 @@ class AccountEndpoint extends Endpoint {
         target.copyWith(passwordChangeRequired: true),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(actor, 'member.password.reset', target.userId),
         transaction: tx,

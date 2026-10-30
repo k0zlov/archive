@@ -16,11 +16,13 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../archive/archive_endpoint.dart' as _ih245e2b;
+import '../archive/archive_maintenance_endpoint.dart' as _i0qwimdn;
 import '../archive/attachment_endpoint.dart' as _i6n3eiba;
 import '../auth/account_endpoint.dart' as _ii6ycf6v;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../auth/login_endpoint.dart' as _ibxz4c1d;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
+import '../sync/archive_sync_endpoint.dart' as _is00g55u;
 import '../updates/updates_endpoint.dart' as _i6lltdln;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -31,6 +33,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'archive',
+          null,
+        ),
+      'archiveMaintenance': _i0qwimdn.ArchiveMaintenanceEndpoint()
+        ..initialize(
+          server,
+          'archiveMaintenance',
           null,
         ),
       'attachment': _i6n3eiba.AttachmentEndpoint()
@@ -61,6 +69,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'greeting',
+          null,
+        ),
+      'archiveSync': _is00g55u.ArchiveSyncEndpoint()
+        ..initialize(
+          server,
+          'archiveSync',
           null,
         ),
       'updates': _i6lltdln.UpdatesEndpoint()
@@ -516,6 +530,66 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['archiveMaintenance'] = _is.EndpointConnector(
+      name: 'archiveMaintenance',
+      endpoint: endpoints['archiveMaintenance']!,
+      methodConnectors: {
+        'summary': _is.MethodConnector(
+          name: 'summary',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['archiveMaintenance']
+                          as _i0qwimdn.ArchiveMaintenanceEndpoint)
+                      .summary(session),
+        ),
+        'clearRecords': _is.MethodConnector(
+          name: 'clearRecords',
+          params: {
+            'confirmation': _is.ParameterDescription(
+              name: 'confirmation',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['archiveMaintenance']
+                          as _i0qwimdn.ArchiveMaintenanceEndpoint)
+                      .clearRecords(
+                        session,
+                        params['confirmation'],
+                      ),
+        ),
+        'clearArchive': _is.MethodConnector(
+          name: 'clearArchive',
+          params: {
+            'confirmation': _is.ParameterDescription(
+              name: 'confirmation',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['archiveMaintenance']
+                          as _i0qwimdn.ArchiveMaintenanceEndpoint)
+                      .clearArchive(
+                        session,
+                        params['confirmation'],
+                      ),
+        ),
+      },
+    );
     connectors['attachment'] = _is.EndpointConnector(
       name: 'attachment',
       endpoint: endpoints['attachment']!,
@@ -741,6 +815,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['newPassword'],
                   ),
         ),
+        'deleteMember': _is.MethodConnector(
+          name: 'deleteMember',
+          params: {
+            'memberId': _is.ParameterDescription(
+              name: 'memberId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['account'] as _ii6ycf6v.AccountEndpoint)
+                  .deleteMember(
+                    session,
+                    params['memberId'],
+                  ),
+        ),
         'resetPassword': _is.MethodConnector(
           name: 'resetPassword',
           params: {
@@ -864,6 +957,59 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['greeting'] as _il624ik7.GreetingEndpoint).hello(
                     session,
                     params['name'],
+                  ),
+        ),
+      },
+    );
+    connectors['archiveSync'] = _is.EndpointConnector(
+      name: 'archiveSync',
+      endpoint: endpoints['archiveSync']!,
+      methodConnectors: {
+        'changes': _is.MethodConnector(
+          name: 'changes',
+          params: {
+            'afterId': _is.ParameterDescription(
+              name: 'afterId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'throughId': _is.ParameterDescription(
+              name: 'throughId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['archiveSync'] as _is00g55u.ArchiveSyncEndpoint)
+                      .changes(
+                        session,
+                        params['afterId'],
+                        params['throughId'],
+                      ),
+        ),
+        'watch': _is.MethodStreamConnector(
+          name: 'watch',
+          params: {},
+          streamParams: {
+            'heartbeat': _is.StreamParameterDescription<int>(
+              name: 'heartbeat',
+              nullable: false,
+            ),
+          },
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['archiveSync'] as _is00g55u.ArchiveSyncEndpoint)
+                  .watch(
+                    session,
+                    streamParams['heartbeat']!.cast<int>(),
                   ),
         ),
       },

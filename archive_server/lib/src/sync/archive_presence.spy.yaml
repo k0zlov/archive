@@ -1,0 +1,13 @@
+### An expiring connection lease, not an authentication token.
+class: ArchivePresence
+serverOnly: true
+table: archive_presence
+fields:
+  userId: String
+  authId: String
+  expiresAt: DateTime
+indexes:
+  archive_presence_user_idx:
+    fields: userId
+  archive_presence_expiry_idx:
+    fields: expiresAt

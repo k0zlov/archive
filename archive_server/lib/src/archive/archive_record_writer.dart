@@ -1,3 +1,4 @@
+import '../sync/archive_events.dart';
 import 'dart:convert';
 import 'package:archive_shared/archive_schema.dart';
 import 'package:serverpod/serverpod.dart';
@@ -83,7 +84,7 @@ class ArchiveRecordWriter {
     Map<String, String> values,
     int? id,
     int? version,
-  ) => session.db.transaction((tx) async {
+  ) => archiveTransaction(session, (tx) async {
     await lockArchiveRecords(session, tx);
     ArchiveRecord? current;
     if (id != null) {
@@ -143,7 +144,7 @@ class ArchiveRecordWriter {
         final moved = file.copyWith(recordId: target!.id!);
         await ArchiveAttachment.db.updateRow(session, moved, transaction: tx);
         if (file.status == 'ready') {
-          await ArchiveAudit.db.insertRow(
+          await writeArchiveAudit(
             session,
             archiveChange(
               actor,
@@ -164,7 +165,7 @@ class ArchiveRecordWriter {
         version: current.version + 1,
       );
       await ArchiveRecord.db.updateRow(session, removed, transaction: tx);
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -181,7 +182,7 @@ class ArchiveRecordWriter {
     next = target == null
         ? await ArchiveRecord.db.insertRow(session, next, transaction: tx)
         : await ArchiveRecord.db.updateRow(session, next, transaction: tx);
-    await ArchiveAudit.db.insertRow(
+    await writeArchiveAudit(
       session,
       archiveChange(
         actor,
@@ -298,7 +299,7 @@ class ArchiveRecordWriter {
           ),
         );
       }
-      await ArchiveAudit.db.insert(session, events, transaction: tx);
+      await writeArchiveAudits(session, events, transaction: tx);
     }
     return {
       'created': created,

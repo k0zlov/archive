@@ -13,3 +13,5 @@
 20261029164521041-skipped_import_rows
 20261029202326913-username_login
 20261029214631480-record_attachments
+20261030132745518-live_presence
+20261030154616077-archive_reset_watermark

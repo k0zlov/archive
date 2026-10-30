@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:archive_shared/archive_schema.dart';
 import 'theme.dart';
+import 'copyable_value.dart';
 
 class ParticipantsView extends StatelessWidget {
   const ParticipantsView({super.key, required this.participants});
@@ -23,15 +24,30 @@ class ParticipantsView extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (p.role.isNotEmpty)
-                Chip(label: Text(p.role), visualDensity: VisualDensity.compact),
-              SelectableText(
-                p.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                CopyableValue(
+                  value: p.role,
+                  label: 'Роль у справі',
+                  child: Chip(
+                    label: Text(p.role),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              CopyableValue(
+                value: p.name,
+                label: 'Ім’я / назва',
+                child: SelectableText(
+                  p.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
               if (p.proceeding.isNotEmpty)
-                SelectableText(
-                  'Провадження № ${p.proceeding}',
-                  style: TextStyle(color: context.archiveScheme.primary),
+                CopyableValue(
+                  value: p.proceeding,
+                  label: 'Провадження №',
+                  child: SelectableText(
+                    'Провадження № ${p.proceeding}',
+                    style: TextStyle(color: context.archiveScheme.primary),
+                  ),
                 ),
             ],
           ),

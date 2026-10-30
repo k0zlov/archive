@@ -224,6 +224,34 @@ class EndpointArchive extends _isc.EndpointRef {
 }
 
 /// {@category Endpoint}
+class EndpointArchiveMaintenance extends _isc.EndpointRef {
+  EndpointArchiveMaintenance(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'archiveMaintenance';
+
+  _ida.Future<String> summary() => caller.callServerEndpoint<String>(
+    'archiveMaintenance',
+    'summary',
+    {},
+  );
+
+  _ida.Future<String> clearRecords(String confirmation) =>
+      caller.callServerEndpoint<String>(
+        'archiveMaintenance',
+        'clearRecords',
+        {'confirmation': confirmation},
+      );
+
+  _ida.Future<String> clearArchive(String confirmation) =>
+      caller.callServerEndpoint<String>(
+        'archiveMaintenance',
+        'clearArchive',
+        {'confirmation': confirmation},
+      );
+}
+
+/// {@category Endpoint}
 class EndpointAttachment extends _isc.EndpointRef {
   EndpointAttachment(_isc.EndpointCaller caller) : super(caller);
 
@@ -319,6 +347,13 @@ class EndpointAccount extends _isc.EndpointRef {
       'newPassword': newPassword,
     },
   );
+
+  _ida.Future<void> deleteMember(int memberId) =>
+      caller.callServerEndpoint<void>(
+        'account',
+        'deleteMember',
+        {'memberId': memberId},
+      );
 
   /// A one-time displayed temporary password; never written to the audit journal.
   _ida.Future<String> resetPassword(int memberId) =>
@@ -419,6 +454,38 @@ class EndpointGreeting extends _isc.EndpointRef {
       );
 }
 
+/// {@category Endpoint}
+class EndpointArchiveSync extends _isc.EndpointRef {
+  EndpointArchiveSync(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'archiveSync';
+
+  /// afterId=-1 reads a starting watermark BEFORE the initial snapshot.
+  /// throughId pins each catch-up run, so concurrent imports cannot starve it.
+  _ida.Future<String> changes(
+    int afterId,
+    int throughId,
+  ) => caller.callServerEndpoint<String>(
+    'archiveSync',
+    'changes',
+    {
+      'afterId': afterId,
+      'throughId': throughId,
+    },
+  );
+
+  /// Bidirectional websocket: small liveness frames, no repeated archive reads.
+  /// The lease also expires after an unclean disconnect/server crash.
+  _ida.Stream<String> watch(_ida.Stream<int> heartbeat) =>
+      caller.callStreamingServerEndpoint<_ida.Stream<String>, String>(
+        'archiveSync',
+        'watch',
+        {},
+        {'heartbeat': heartbeat},
+      );
+}
+
 /// Keep these signatures backward-compatible: updates must work before login.
 /// {@category Endpoint}
 class EndpointUpdates extends _isc.EndpointRef {
@@ -485,16 +552,20 @@ class Client extends _isc.ServerpodClientShared {
          httpClientOverride: httpClientOverride,
        ) {
     archive = EndpointArchive(this);
+    archiveMaintenance = EndpointArchiveMaintenance(this);
     attachment = EndpointAttachment(this);
     account = EndpointAccount(this);
     jwtRefresh = EndpointJwtRefresh(this);
     login = EndpointLogin(this);
     greeting = EndpointGreeting(this);
+    archiveSync = EndpointArchiveSync(this);
     updates = EndpointUpdates(this);
     modules = Modules(this);
   }
 
   late final EndpointArchive archive;
+
+  late final EndpointArchiveMaintenance archiveMaintenance;
 
   late final EndpointAttachment attachment;
 
@@ -506,6 +577,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointGreeting greeting;
 
+  late final EndpointArchiveSync archiveSync;
+
   late final EndpointUpdates updates;
 
   late final Modules modules;
@@ -513,11 +586,13 @@ class Client extends _isc.ServerpodClientShared {
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'archive': archive,
+    'archiveMaintenance': archiveMaintenance,
     'attachment': attachment,
     'account': account,
     'jwtRefresh': jwtRefresh,
     'login': login,
     'greeting': greeting,
+    'archiveSync': archiveSync,
     'updates': updates,
   };
 

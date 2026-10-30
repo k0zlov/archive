@@ -1,0 +1,6 @@
+### Durable reset watermark. Retained when business data and audit are cleared.
+class: ArchiveSyncState
+serverOnly: true
+table: archive_sync_state
+fields:
+  resetCursor: int, default=0

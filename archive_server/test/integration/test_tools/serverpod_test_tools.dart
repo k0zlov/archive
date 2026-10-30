@@ -155,6 +155,8 @@ void withServerpod(
 class TestEndpoints {
   late final _ArchiveEndpoint archive;
 
+  late final _ArchiveMaintenanceEndpoint archiveMaintenance;
+
   late final _AttachmentEndpoint attachment;
 
   late final _AccountEndpoint account;
@@ -164,6 +166,8 @@ class TestEndpoints {
   late final _LoginEndpoint login;
 
   late final _GreetingEndpoint greeting;
+
+  late final _ArchiveSyncEndpoint archiveSync;
 
   late final _UpdatesEndpoint updates;
 }
@@ -176,6 +180,10 @@ class _InternalTestEndpoints extends TestEndpoints
     _is.EndpointDispatch endpoints,
   ) {
     archive = _ArchiveEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    archiveMaintenance = _ArchiveMaintenanceEndpoint(
       endpoints,
       serializationManager,
     );
@@ -196,6 +204,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     greeting = _GreetingEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    archiveSync = _ArchiveSyncEndpoint(
       endpoints,
       serializationManager,
     );
@@ -875,6 +887,107 @@ class _ArchiveEndpoint {
   }
 }
 
+class _ArchiveMaintenanceEndpoint {
+  _ArchiveMaintenanceEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<String> summary(_ist.TestSessionBuilder sessionBuilder) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'archiveMaintenance',
+            method: 'summary',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'archiveMaintenance',
+          methodName: 'summary',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<String> clearRecords(
+    _ist.TestSessionBuilder sessionBuilder,
+    String confirmation,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'archiveMaintenance',
+            method: 'clearRecords',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'archiveMaintenance',
+          methodName: 'clearRecords',
+          parameters: _ist.testObjectToJson({'confirmation': confirmation}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<String> clearArchive(
+    _ist.TestSessionBuilder sessionBuilder,
+    String confirmation,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'archiveMaintenance',
+            method: 'clearArchive',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'archiveMaintenance',
+          methodName: 'clearArchive',
+          parameters: _ist.testObjectToJson({'confirmation': confirmation}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
 class _AttachmentEndpoint {
   _AttachmentEndpoint(
     this._endpointDispatch,
@@ -1195,6 +1308,37 @@ class _AccountEndpoint {
     });
   }
 
+  _ida.Future<void> deleteMember(
+    _ist.TestSessionBuilder sessionBuilder,
+    int memberId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'account',
+            method: 'deleteMember',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'account',
+          methodName: 'deleteMember',
+          parameters: _ist.testObjectToJson({'memberId': memberId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<String> resetPassword(
     _ist.TestSessionBuilder sessionBuilder,
     int memberId,
@@ -1389,6 +1533,84 @@ class _GreetingEndpoint {
         await _localUniqueSession.close();
       }
     });
+  }
+}
+
+class _ArchiveSyncEndpoint {
+  _ArchiveSyncEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<String> changes(
+    _ist.TestSessionBuilder sessionBuilder,
+    int afterId,
+    int throughId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'archiveSync',
+            method: 'changes',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'archiveSync',
+          methodName: 'changes',
+          parameters: _ist.testObjectToJson({
+            'afterId': afterId,
+            'throughId': throughId,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Stream<String> watch(
+    _ist.TestSessionBuilder sessionBuilder,
+    _ida.Stream<int> heartbeat,
+  ) {
+    var _localTestStreamManager = _ist.TestStreamManager<String>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'archiveSync',
+              method: 'watch',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'archiveSync',
+              methodName: 'watch',
+              arguments: {},
+              requestedInputStreams: ['heartbeat'],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {'heartbeat': heartbeat},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
   }
 }
 

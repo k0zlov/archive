@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:serverpod_auth_idp_server/core.dart';
+import 'package:serverpod_auth_idp_server/providers/email.dart';
 import 'package:archive_shared/archive_shared.dart';
 import 'package:archive_server/src/generated/protocol.dart';
 import 'package:test/test.dart';
@@ -28,6 +30,21 @@ void main() {
       authentication: AuthenticationOverride.authenticationInfo(adminId, {}),
     );
     final session = sessions.build();
+    setUpAll(
+      () => session.serverpod.initializeAuthServices(
+        tokenManagerBuilders: [
+          JwtConfig(
+            algorithm: JwtAlgorithm.hmacSha512(
+              SecretKey('archive-isolated-integration-tests-only'),
+            ),
+            refreshTokenHashPepper: 'archive-test-refresh-pepper',
+          ),
+        ],
+        identityProviderBuilders: [
+          EmailIdpConfig(secretHashPepper: 'archive-test-password-pepper'),
+        ],
+      ),
+    );
     late ArchiveMember readerMember;
     setUp(() async {
       await ArchiveMember.db.insertRow(

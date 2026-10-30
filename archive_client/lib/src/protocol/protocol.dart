@@ -18,8 +18,10 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'auth/archive_auth_exception.dart' as _iaeozbuv;
 import 'greetings/greeting.dart' as _izw8z7ou;
+import 'sync/archive_signal.dart' as _i6zzyckt;
 export 'auth/archive_auth_exception.dart';
 export 'greetings/greeting.dart';
+export 'sync/archive_signal.dart';
 export 'client.dart';
 
 class Protocol extends _isc.SerializationManager {
@@ -62,6 +64,9 @@ class Protocol extends _isc.SerializationManager {
     if (t == _izw8z7ou.Greeting) {
       return _izw8z7ou.Greeting.fromJson(data) as T;
     }
+    if (t == _i6zzyckt.ArchiveSignal) {
+      return _i6zzyckt.ArchiveSignal.fromJson(data) as T;
+    }
     if (t == _isc.getType<_iaeozbuv.ArchiveAuthException?>()) {
       return (data != null
               ? _iaeozbuv.ArchiveAuthException.fromJson(data)
@@ -70,6 +75,10 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _isc.getType<_izw8z7ou.Greeting?>()) {
       return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_i6zzyckt.ArchiveSignal?>()) {
+      return (data != null ? _i6zzyckt.ArchiveSignal.fromJson(data) : null)
+          as T;
     }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
@@ -87,6 +96,7 @@ class Protocol extends _isc.SerializationManager {
     return switch (type) {
       _iaeozbuv.ArchiveAuthException => 'ArchiveAuthException',
       _izw8z7ou.Greeting => 'Greeting',
+      _i6zzyckt.ArchiveSignal => 'ArchiveSignal',
       _ => null,
     };
   }
@@ -105,6 +115,8 @@ class Protocol extends _isc.SerializationManager {
         return 'ArchiveAuthException';
       case _izw8z7ou.Greeting():
         return 'Greeting';
+      case _i6zzyckt.ArchiveSignal():
+        return 'ArchiveSignal';
     }
     className = _iaic.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -132,6 +144,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'Greeting') {
       return deserialize<_izw8z7ou.Greeting>(data['data']);
+    }
+    if (dataClassName == 'ArchiveSignal') {
+      return deserialize<_i6zzyckt.ArchiveSignal>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);

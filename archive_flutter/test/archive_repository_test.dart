@@ -48,6 +48,13 @@ class TestClient extends Client {
           'courtAccess': !revoked,
           'managementAccess': false,
         };
+      case 'changes':
+        if (args['afterId'] == -1) {
+          data = {'cursor': 0};
+        } else {
+          if (recordsGate != null) await recordsGate!.future;
+          data = {'cursor': 0, 'head': 0, 'hasMore': false, 'items': []};
+        }
       case 'recordRevision':
         data = {
           'revision':

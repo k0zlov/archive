@@ -1,3 +1,5 @@
+import '../sync/archive_sync_endpoint.dart';
+import '../sync/archive_events.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -31,7 +33,7 @@ class ArchiveEndpoint extends Endpoint {
               .toLowerCase();
       final isAdmin = configuredAdmin.isNotEmpty && email == configuredAdmin;
       try {
-        member = await session.db.transaction((tx) async {
+        member = await archiveTransaction(session, (tx) async {
           final created = await ArchiveMember.db.insertRow(
             session,
             ArchiveMember(
@@ -45,7 +47,7 @@ class ArchiveEndpoint extends Endpoint {
             ),
             transaction: tx,
           );
-          await ArchiveAudit.db.insertRow(
+          await writeArchiveAudit(
             session,
             archiveChange(
               created,
@@ -65,7 +67,10 @@ class ArchiveEndpoint extends Endpoint {
         if (member == null) rethrow;
       }
     }
-    return _memberJson(member!);
+    if (member!.role == 'deleted' || member.role == 'blocked') {
+      throw const _Denied();
+    }
+    return _memberJson(member);
   });
 
   Future<String> records(Session session, int afterId) => _respond(() async {
@@ -145,7 +150,7 @@ class ArchiveEndpoint extends Endpoint {
   }) => _respond(() async {
     final kind = ArchiveModule.values.byName(module);
     final actor = await _access(session, kind, write: true);
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await ArchiveImportJob.db.deleteWhere(
         session,
         where: (t) =>
@@ -164,7 +169,7 @@ class ArchiveEndpoint extends Endpoint {
         ),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -186,7 +191,7 @@ class ArchiveEndpoint extends Endpoint {
     List<String> rows,
   ) => _respond(() async {
     if (rows.isEmpty) throw const FormatException('Порожня порція імпорту.');
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final job = await _importJob(session, jobId, tx);
       if (job.status != 'open') {
         throw const FormatException('Імпорт уже завершено.');
@@ -284,7 +289,7 @@ class ArchiveEndpoint extends Endpoint {
   });
 
   Future<String> commitImport(Session session, int jobId) => _respond(() async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final job = await _importJob(session, jobId, tx);
       if (job.status == 'committed') return jsonDecode(job.resultJson);
       if (job.receivedRows == 0) {
@@ -353,7 +358,7 @@ class ArchiveEndpoint extends Endpoint {
         where: (t) => t.jobId.equals(jobId),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -373,11 +378,11 @@ class ArchiveEndpoint extends Endpoint {
   });
 
   Future<String> cancelImport(Session session, int jobId) => _respond(() async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final job = await _importJob(session, jobId, tx);
       if (job.status != 'committed') {
         final actor = await _member(session);
-        await ArchiveAudit.db.insertRow(
+        await writeArchiveAudit(
           session,
           archiveChange(
             actor,
@@ -495,10 +500,20 @@ class ArchiveEndpoint extends Endpoint {
 
   Future<String> members(Session session) => _respond(() async {
     await _admin(session);
+    final status = await archiveSessionStatus(session);
     return (await ArchiveMember.db.find(
-      session,
-      orderBy: (t) => t.createdAt,
-    )).map(_memberJson).toList();
+          session,
+          where: (t) => t.role.notEquals('deleted'),
+          orderBy: (t) => t.createdAt,
+        ))
+        .map(
+          (m) => {
+            ..._memberJson(m),
+            'online': status[m.userId]?['online'] ?? false,
+            'activeSessions': status[m.userId]?['activeSessions'] ?? 0,
+          },
+        )
+        .toList();
   });
 
   Future<String> setMemberAccess(
@@ -518,8 +533,10 @@ class ArchiveEndpoint extends Endpoint {
       );
     }
     final target = await ArchiveMember.db.findById(session, memberId);
-    if (target == null) throw const FormatException('Користувача не знайдено.');
-    await session.db.transaction((tx) async {
+    if (target == null || target.role == 'deleted') {
+      throw const FormatException('Користувача не знайдено.');
+    }
+    await archiveTransaction(session, (tx) async {
       final changed = await ArchiveMember.db.updateRow(
         session,
         target.copyWith(
@@ -529,7 +546,7 @@ class ArchiveEndpoint extends Endpoint {
         ),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -541,6 +558,12 @@ class ArchiveEndpoint extends Endpoint {
         transaction: tx,
       );
     });
+    if (role == 'blocked') {
+      await AuthServices.instance.tokenManager.revokeAllTokens(
+        session,
+        authUserId: UuidValue.fromString(target.userId),
+      );
+    }
     return {'saved': true};
   });
 
@@ -584,7 +607,7 @@ class ArchiveEndpoint extends Endpoint {
     if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
       throw const FormatException('Документ порожній або перевищує 5 МБ.');
     }
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final d = await ArchiveDocument.db.insertRow(
         session,
         ArchiveDocument(
@@ -597,7 +620,7 @@ class ArchiveEndpoint extends Endpoint {
         ),
         transaction: tx,
       );
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           member,
@@ -631,7 +654,7 @@ class ArchiveEndpoint extends Endpoint {
 
   Future<String> deleteRecord(Session session, int id, int version) =>
       _respond(() async {
-        return session.db.transaction((tx) async {
+        return archiveTransaction(session, (tx) async {
           await lockArchiveRecords(session, tx);
           final record = await ArchiveRecord.db.findById(
             session,
@@ -660,7 +683,7 @@ class ArchiveEndpoint extends Endpoint {
             updatedAt: DateTime.now().toUtc(),
           );
           await ArchiveRecord.db.updateRow(session, deleted, transaction: tx);
-          await ArchiveAudit.db.insertRow(
+          await writeArchiveAudit(
             session,
             archiveChange(
               actor,
@@ -677,7 +700,7 @@ class ArchiveEndpoint extends Endpoint {
       });
 
   Future<String> restoreRecord(Session session, int id) => _respond(() async {
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       await lockArchiveRecords(session, tx);
       final record = await ArchiveRecord.db.findById(
         session,
@@ -709,7 +732,7 @@ class ArchiveEndpoint extends Endpoint {
         updatedAt: DateTime.now().toUtc(),
       );
       await ArchiveRecord.db.updateRow(session, restored, transaction: tx);
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -727,7 +750,7 @@ class ArchiveEndpoint extends Endpoint {
 
   Future<String> deleteDocument(Session session, int id) => _respond(() async {
     final actor = await _access(session, ArchiveModule.management, write: true);
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final doc = await ArchiveDocument.db.findById(
         session,
         id,
@@ -742,7 +765,7 @@ class ArchiveEndpoint extends Endpoint {
         deletedBy: actor.userId,
       );
       await ArchiveDocument.db.updateRow(session, deleted, transaction: tx);
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,
@@ -760,7 +783,7 @@ class ArchiveEndpoint extends Endpoint {
 
   Future<String> restoreDocument(Session session, int id) => _respond(() async {
     final actor = await _access(session, ArchiveModule.management, write: true);
-    return session.db.transaction((tx) async {
+    return archiveTransaction(session, (tx) async {
       final doc = await ArchiveDocument.db.findById(
         session,
         id,
@@ -772,7 +795,7 @@ class ArchiveEndpoint extends Endpoint {
       }
       final restored = doc.copyWith(deletedAt: null, deletedBy: null);
       await ArchiveDocument.db.updateRow(session, restored, transaction: tx);
-      await ArchiveAudit.db.insertRow(
+      await writeArchiveAudit(
         session,
         archiveChange(
           actor,

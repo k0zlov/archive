@@ -42,3 +42,8 @@ String recordSearchText(Map values) => values.entries
     .map((e) => e.value)
     .join(' ')
     .toLowerCase();
+
+/// Atomically applies a bounded journal page and its cursor to the local copy.
+abstract interface class ArchiveDeltaStore {
+  Future<void> applyArchiveDelta(String account, Map<String, dynamic> delta);
+}

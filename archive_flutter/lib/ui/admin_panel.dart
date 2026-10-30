@@ -4,6 +4,7 @@ import '../data/auth_gateway.dart';
 import 'package:archive_shared/archive_schema.dart';
 import '../data/archive_repository.dart';
 import 'theme.dart';
+import 'archive_maintenance_panel.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key, required this.repository});
@@ -18,7 +19,18 @@ class _AdminPanelState extends State<AdminPanel> {
   @override
   void initState() {
     super.initState();
+    widget.repository.memberChanges.addListener(updateMembers);
     load();
+  }
+
+  void updateMembers() {
+    if (mounted) setState(() => members = List.of(widget.repository.members));
+  }
+
+  @override
+  void dispose() {
+    widget.repository.memberChanges.removeListener(updateMembers);
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -27,7 +39,8 @@ class _AdminPanelState extends State<AdminPanel> {
       return;
     }
     try {
-      final data = await widget.repository.request('members') as List;
+      await widget.repository.refreshMembers();
+      final data = widget.repository.members;
       if (mounted) {
         setState(() {
           members = data
@@ -205,6 +218,40 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  final deleting = <int>{};
+  Future<void> deleteMember(Map<String, dynamic> member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Видалити користувача?'),
+        content: Text(
+          'Обліковий запис ${member['login'] ?? member['email']} буде видалено. Усі його сеанси буде завершено. Історія змін справ збережеться.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Скасувати'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Видалити'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final id = member['id'] as int;
+    setState(() => deleting.add(id));
+    try {
+      await widget.repository.client.account.deleteMember(id);
+      await load();
+    } catch (e) {
+      if (mounted) showArchiveMessage(context, authErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => deleting.remove(id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (error != null) {
@@ -271,12 +318,51 @@ class _AdminPanelState extends State<AdminPanel> {
                   ),
                 ),
                 title: Text('${member['login'] ?? member['email']}'),
-                subtitle: Text(
-                  '${roleLabels[member['role']]}${own ? ' · Ваш обліковий запис' : ''}',
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${roleLabels[member['role']]}${own ? ' · Ваш обліковий запис' : ''}',
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          widget.repository.online
+                              ? (member['online'] == true
+                                    ? '● Онлайн'
+                                    : '○ Не в мережі')
+                              : 'Статус невідомий',
+                          style: TextStyle(
+                            color:
+                                widget.repository.online &&
+                                    member['online'] == true
+                                ? context.archiveScheme.primary
+                                : context.archiveScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          'Активні сеанси: ${widget.repository.online ? member['activeSessions'] ?? 0 : '—'}',
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      tooltip: 'Видалити користувача',
+                      onPressed:
+                          own ||
+                              !widget.repository.online ||
+                              deleting.contains(member['id'])
+                          ? null
+                          : () => deleteMember(member),
+                      icon: const Icon(Icons.person_remove_outlined),
+                    ),
                     IconButton(
                       tooltip: 'Скинути пароль',
                       onPressed: own || !widget.repository.online
@@ -297,6 +383,8 @@ class _AdminPanelState extends State<AdminPanel> {
             },
           ),
         ),
+        if (widget.repository.profile['role'] == 'admin')
+          ArchiveMaintenancePanel(repository: widget.repository),
       ],
     );
   }

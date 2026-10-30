@@ -1,3 +1,4 @@
+import '../sync/archive_events.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
@@ -22,9 +23,10 @@ class LoginEndpoint extends Endpoint {
       where: (t) => t.login.equals(normalized),
     );
     // Unknown and blocked users follow the same credential failure path.
+    session.addWillCloseListener((s) => notifyArchive(s, 'presence'));
     return archivePasswordLogin(
       session,
-      member == null || member.role == 'blocked'
+      member == null || ['blocked', 'deleted'].contains(member.role)
           ? 'unknown-$normalized@archive.invalid'
           : credentialIdentifier(member),
       password,
@@ -39,7 +41,7 @@ class LoginEndpoint extends Endpoint {
     final normalized = normalizeArchiveLogin(login);
     validateArchivePassword(password);
     try {
-      return await session.db.transaction((tx) async {
+      return await archiveTransaction(session, (tx) async {
         final existing = await ArchiveMember.db.findFirstRow(
           session,
           where: (t) => t.login.equals(normalized),
@@ -75,7 +77,7 @@ class LoginEndpoint extends Endpoint {
           UserProfileData(userName: normalized, fullName: normalized),
           transaction: tx,
         );
-        await ArchiveAudit.db.insertRow(
+        await writeArchiveAudit(
           session,
           archiveChange(
             member,

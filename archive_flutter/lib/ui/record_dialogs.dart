@@ -6,6 +6,7 @@ import 'theme.dart';
 import 'participants_editor.dart';
 import 'attachment_panel.dart';
 import 'record_layout.dart';
+import 'copyable_value.dart';
 
 Future<void> editArchiveRecord(
   BuildContext context,
@@ -349,7 +350,24 @@ class _RecordCard extends StatefulWidget {
 class _RecordCardState extends State<_RecordCard> {
   final scrollController = ScrollController();
   @override
+  void initState() {
+    super.initState();
+    widget.controller.repository.dataReset.addListener(closeOnReset);
+  }
+
+  void closeOnReset() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final route = ModalRoute.of(context);
+      if (route != null && route.isActive) {
+        Navigator.of(context).removeRoute(route);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    widget.controller.repository.dataReset.removeListener(closeOnReset);
     scrollController.dispose();
     super.dispose();
   }
@@ -374,10 +392,14 @@ class _RecordCardState extends State<_RecordCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          r.reference,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                        CopyableValue(
+                          value: r.reference,
+                          label: 'Номер справи',
+                          child: Text(
+                            r.reference,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(r.module.label),
@@ -428,28 +450,35 @@ class _RecordCardState extends State<_RecordCard> {
                         ))
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  f.label,
-                                  style: TextStyle(
-                                    color:
-                                        context.archiveScheme.onSurfaceVariant,
-                                    fontSize: 12,
+                            child: CopyableValue(
+                              value: f.kind == FieldKind.date
+                                  ? displayDate(r.values[f.key]!)
+                                  : r.values[f.key]!,
+                              label: f.label,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    f.label,
+                                    style: TextStyle(
+                                      color: context
+                                          .archiveScheme
+                                          .onSurfaceVariant,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                SelectableText(
-                                  f.kind == FieldKind.date
-                                      ? displayDate(r.values[f.key]!)
-                                      : r.values[f.key]!,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.5,
+                                  const SizedBox(height: 4),
+                                  SelectableText(
+                                    f.kind == FieldKind.date
+                                        ? displayDate(r.values[f.key]!)
+                                        : r.values[f.key]!,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      height: 1.5,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         if (section == 'Учасники справи')

@@ -43,7 +43,7 @@ Future<ArchiveMember> authenticatedArchiveMember(
     where: (t) => t.userId.equals(userId),
     transaction: transaction,
   );
-  if (member == null || member.role == 'blocked') {
+  if (member == null || ['blocked', 'deleted'].contains(member.role)) {
     throw ArchiveAuthException(message: 'Обліковий запис недоступний.');
   }
   return member;

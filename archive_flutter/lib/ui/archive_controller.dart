@@ -2,6 +2,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:archive_shared/archive_schema.dart';
 import '../data/archive_repository.dart';
+import '../data/archive_live_sync.dart';
+import '../data/auth_gateway.dart';
+import 'package:archive_client/archive_client.dart';
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 class ArchiveController extends ChangeNotifier {
   ArchiveController(this.repository) {
@@ -9,6 +13,78 @@ class ArchiveController extends ChangeNotifier {
   }
   final ArchiveRepository repository;
   Timer? _timer;
+  Timer? _eventDebounce;
+  bool _refreshPending = false;
+  Future<void>? _membersRefresh;
+  String? _watchSession;
+  String? get _currentSession => repository.client.auth.authInfo?.refreshToken
+      ?.split(':')
+      .take(2)
+      .join(':');
+  late final _live = ArchiveLiveSync(
+    watch: (heartbeat) {
+      _watchSession = _currentSession;
+      return repository.client.archiveSync.watch(heartbeat);
+    },
+    beforeHeartbeat: () async {
+      final auth = repository.client.auth;
+      final signedIn = auth.isAuthenticated;
+      await auth.refreshAuthKey();
+      if (signedIn && !auth.isAuthenticated) await repository.clear();
+    },
+    onData: _scheduleRefresh,
+    onPresenceSnapshot: repository.applyMemberPresence,
+    onAlive: () {
+      if (!repository.online) _scheduleRefresh();
+    },
+    onPresence: () {
+      if (_disposed || _paused || _membersRefresh != null) return;
+      _membersRefresh = repository
+          .refreshMembers()
+          .catchError((Object _) {})
+          .whenComplete(() {
+            _membersRefresh = null;
+          });
+    },
+    onDisconnected: () {
+      if (_disposed || _paused) return;
+      repository.online = false;
+      repository.notice = 'Немає зв’язку із сервером. Доступна локальна копія.';
+      _notify();
+    },
+    onError: (error) async {
+      if (_disposed || _paused) return;
+      if (error is ArchiveAuthException ||
+          error is ServerpodClientUnauthorized ||
+          error is ServerpodClientForbidden) {
+        final failedSession = _watchSession;
+        await waitForAuthenticationOperations();
+        if (_disposed || _paused) return;
+        if (_currentSession != null && _currentSession != failedSession) return;
+        await repository.invalidateAuthentication();
+        _notify();
+      }
+    },
+  );
+
+  void _scheduleRefresh() {
+    if (_disposed || _paused) return;
+    _eventDebounce?.cancel();
+    _eventDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (loading) {
+        _refreshPending = true;
+        return;
+      }
+      unawaited(refresh());
+    });
+  }
+
+  void _startSynchronization() {
+    _live.start();
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(minutes: 5), (_) => refresh());
+  }
+
   Timer? _searchTimer;
   bool loading = false;
   bool pageLoading = false;
@@ -87,7 +163,7 @@ class ArchiveController extends ChangeNotifier {
     await loadPage();
     await refresh();
     if (!_disposed && !_paused) {
-      _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
+      _startSynchronization();
     }
   }
 
@@ -101,6 +177,10 @@ class ArchiveController extends ChangeNotifier {
     } finally {
       loading = false;
       _notify();
+      if (_refreshPending && !_disposed && !_paused) {
+        _refreshPending = false;
+        _scheduleRefresh();
+      }
     }
   }
 
@@ -108,6 +188,8 @@ class ArchiveController extends ChangeNotifier {
     _paused = true;
     _pageRequest++;
     _timer?.cancel();
+    _eventDebounce?.cancel();
+    _live.stop();
     _searchTimer?.cancel();
     await repository.prepareForUpdate();
   }
@@ -116,6 +198,8 @@ class ArchiveController extends ChangeNotifier {
     _paused = true;
     _pageRequest++;
     _timer?.cancel();
+    _eventDebounce?.cancel();
+    _live.stop();
     _searchTimer?.cancel();
     await repository.clear();
   }
@@ -124,7 +208,7 @@ class ArchiveController extends ChangeNotifier {
     if (_disposed || !_paused) return;
     _paused = false;
     unawaited(refresh());
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
+    _startSynchronization();
   }
 
   void setSearch(String value) {
@@ -163,9 +247,10 @@ class ArchiveController extends ChangeNotifier {
     _disposed = true;
     _pageRequest++;
     _timer?.cancel();
+    _eventDebounce?.cancel();
+    _live.stop();
     _searchTimer?.cancel();
-    repository.attachments.dispose();
-    repository.activity.dispose();
+    repository.dispose();
     super.dispose();
   }
 }

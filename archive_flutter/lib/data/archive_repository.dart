@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:archive_client/archive_client.dart';
 import 'package:archive_shared/archive_schema.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show compute, mapEquals;
+import 'package:flutter/foundation.dart' show compute, ValueNotifier;
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'cache_store.dart';
 import 'record_page.dart';
 import 'archive_activity.dart';
@@ -12,11 +13,6 @@ import 'attachment_repository.dart';
 Map<String, dynamic> _decodeArchiveJson(String raw) =>
     jsonDecode(raw) as Map<String, dynamic>;
 String _encodeArchiveJson(Map<String, dynamic> value) => jsonEncode(value);
-bool _sameMetadata(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
-  if (a.length != b.length) return false;
-  final indexed = {for (final value in a) value['id']: value};
-  return b.every((value) => mapEquals(indexed[value['id']], value));
-}
 
 class CaseRecordPage {
   const CaseRecordPage(this.records, this.total, this.page);
@@ -98,7 +94,20 @@ class ArchiveRepository {
   int _generation = 0;
   Future<void> _cacheWrites = Future<void>.value();
   bool _cacheReady = false;
-  String? _recordRevision;
+  int? _syncCursor;
+  bool _filesPending = true;
+  final memberChanges = ValueNotifier<int>(0);
+  final dataReset = ValueNotifier<int>(0);
+  bool _notificationsDisposed = false;
+  void dispose() {
+    _generation++;
+    _notificationsDisposed = true;
+    memberChanges.dispose();
+    dataReset.dispose();
+    attachments.dispose();
+    activity.dispose();
+  }
+
   Object? _matchingSource;
   String? _matchingQuery;
   List<CaseRecord> _matching = [];
@@ -192,7 +201,9 @@ class ArchiveRepository {
       final raw = await client
           .callServerEndpoint<String>(endpoint, method, args)
           .timeout(
-            method == 'commitImport'
+            (method == 'commitImport' ||
+                    method == 'clearArchive' ||
+                    method == 'clearRecords')
                 ? const Duration(minutes: 5)
                 : method == 'cancelImport'
                 ? const Duration(seconds: 3)
@@ -237,6 +248,12 @@ class ArchiveRepository {
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
       syncedAt = DateTime.parse(data['syncedAt'] as String);
+      _syncCursor = (data['syncCursor'] ?? profile['_syncCursor']) as int?;
+      profile.remove('_syncCursor');
+      for (final member in members) {
+        member.remove('online');
+        member.remove('activeSessions');
+      }
       _cacheReady = true;
       await attachments.restore();
     } catch (_) {
@@ -256,13 +273,63 @@ class ArchiveRepository {
     return work;
   }
 
-  Future<void> _refresh() async {
-    final task = activity.begin(
-      'Синхронізація · 1/5: перевірка доступу',
-      priority: 1,
-    );
-    final epoch = _mutationEpoch;
+  Future<Map<String, dynamic>> _changes(
+    int afterId, [
+    int throughId = 0,
+  ]) async => Map<String, dynamic>.from(
+    await requestTo('archiveSync', 'changes', {
+          'afterId': afterId,
+          'throughId': throughId,
+        })
+        as Map,
+  );
+
+  void applyMemberPresence(Map<String, dynamic> status) {
+    if (!online || profile['role'] != 'admin') return;
+    members = [
+      for (final member in members)
+        {
+          ...member,
+          'online': (status[member['userId']] as Map?)?['online'] ?? false,
+          'activeSessions':
+              (status[member['userId']] as Map?)?['activeSessions'] ?? 0,
+        },
+    ];
+    memberChanges.value++;
+  }
+
+  Future<void> refreshMembers() async {
+    if (!online || profile['role'] != 'admin') return;
     final generation = _generation;
+    final data = await request('members') as List;
+    if (generation != _generation || profile['role'] != 'admin') return;
+    members = data.map((v) => Map<String, dynamic>.from(v as Map)).toList();
+    memberChanges.value++;
+  }
+
+  Future<void> _loadDocuments() async {
+    final generation = _generation;
+    final incoming = (await request('documents') as List)
+        .map((v) => Map<String, dynamic>.from(v as Map))
+        .toList();
+    if (generation != _generation) return;
+    final nextFiles = <String, String>{};
+    for (final doc in incoming) {
+      final id = '${doc['id']}';
+      nextFiles[id] =
+          documentFiles[id] ??
+          ((await request('downloadDocument', {'id': doc['id']})
+                  as Map)['content']
+              as String);
+      if (generation != _generation) return;
+    }
+    documents = incoming;
+    documentFiles = nextFiles;
+  }
+
+  Future<void> _refresh() async {
+    final task = activity.begin('Оновлення архіву', priority: 1);
+    final epoch = _mutationEpoch, generation = _generation;
     try {
       final nextProfile = Map<String, dynamic>.from(
         await request('profile') as Map,
@@ -276,12 +343,17 @@ class ArchiveRepository {
       ].any((key) => profile[key] != nextProfile[key]);
       profile = nextProfile;
       if (accessChanged) await attachments.purgeUnauthorized();
+      if (generation != _generation) return;
       if (profile['role'] != 'admin') {
         audit = [];
         members = [];
+        memberChanges.value++;
       }
-      // Purge revoked modules before attempting any further network requests.
-      records = records.where((r) => canReadModule(profile, r.module)).toList();
+      if (accessChanged) {
+        records = records
+            .where((r) => canReadModule(profile, r.module))
+            .toList();
+      }
       if (!canReadModule(profile, ArchiveModule.management)) {
         documents = [];
         documentFiles = {};
@@ -293,153 +365,215 @@ class ArchiveRepository {
         documentFiles = {};
         audit = [];
         members = [];
-        _recordRevision = null;
+        _syncCursor = null;
         online = true;
         syncedAt = DateTime.now();
         notice = null;
         await _persist();
         return;
       }
+      // Revoked data is removed from disk before any further network call.
       if (accessChanged) await _persist();
-      activity.stage(task, 'Синхронізація · 2/5: перевірка змін справ');
-      final revision =
-          (await request('recordRevision') as Map)['revision'] as String;
-      if (generation != _generation) return;
-      final recordsChanged = revision != _recordRevision;
-      final nextRecords = revision == _recordRevision
-          ? records
-          : <CaseRecord>[];
-      var cursor = 0;
-      while (revision != _recordRevision) {
-        activity.stage(
-          task,
-          'Завантаження справ: ${nextRecords.length} записів',
-        );
-        final page = await request('records', {'afterId': cursor}) as List;
+      final full = _syncCursor == null || accessChanged;
+      if (full) {
+        final baseline = (await _changes(-1))['cursor'] as int;
         if (generation != _generation) return;
-        nextRecords.addAll(
-          page.map(
-            (v) => CaseRecord.fromJson(Map<String, dynamic>.from(v as Map)),
-          ),
-        );
-        if (page.length < 250) break;
-        cursor = nextRecords.last.id;
-      }
-      activity.stage(task, 'Синхронізація · 3/5: номенклатури та документи');
-      final nextDocuments = (await request('documents') as List)
-          .map((v) => Map<String, dynamic>.from(v as Map))
-          .toList();
-      if (generation != _generation) return;
-      final nextFiles = <String, String>{};
-      for (final doc in nextDocuments) {
-        activity.stage(
-          task,
-          'Збереження документів для роботи без сервера',
-          completed: nextFiles.length,
-          total: nextDocuments.length,
-        );
-        final id = '${doc['id']}';
-        nextFiles[id] =
-            documentFiles[id] ??
-            ((await request('downloadDocument', {'id': doc['id']})
-                    as Map)['content']
-                as String);
-        if (generation != _generation) return;
-      }
-      activity.stage(
-        task,
-        'Синхронізація · 4/5: нові події журналу та користувачі',
-      );
-      final nextAudit = <Map<String, dynamic>>[];
-      var nextMembers = <Map<String, dynamic>>[];
-      if (profile['role'] == 'admin') {
-        nextMembers = (await request('members') as List)
-            .map((m) => Map<String, dynamic>.from(m as Map))
-            .toList();
-        var before = 0;
-        final newestCached = audit.isEmpty ? 0 : audit.first['id'] as int;
+        final loaded = <CaseRecord>[];
+        var cursor = 0;
         while (true) {
-          final page =
-              await request('auditEntries', {'beforeId': before, 'query': ''})
-                  as Map;
-          final items = (page['items'] as List)
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-          activity.stage(
-            task,
-            'Журнал аудиту: отримано ${nextAudit.length} нових подій',
+          activity.stage(task, 'Завантаження архіву: ${loaded.length} справ');
+          final page = await request('records', {'afterId': cursor}) as List;
+          if (generation != _generation || epoch != _mutationEpoch) return;
+          loaded.addAll(
+            page.map(
+              (v) => CaseRecord.fromJson(Map<String, dynamic>.from(v as Map)),
+            ),
           );
-          nextAudit.addAll(items.where((e) => (e['id'] as int) > newestCached));
-          if (generation != _generation) return;
-          if (items.any((e) => (e['id'] as int) <= newestCached)) {
-            nextAudit.addAll(audit);
-            break;
+          if (page.length < 250) break;
+          cursor = loaded.last.id;
+        }
+        await _loadDocuments();
+        if (generation != _generation || epoch != _mutationEpoch) return;
+        records = loaded;
+        online = true;
+        await refreshMembers();
+        if (profile['role'] == 'admin') {
+          final loadedAudit = <Map<String, dynamic>>[];
+          var before = 0;
+          while (true) {
+            final page =
+                await request('auditEntries', {'beforeId': before, 'query': ''})
+                    as Map;
+            final items = (page['items'] as List)
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList();
+            loadedAudit.addAll(items);
+            if (generation != _generation) return;
+            if (page['hasMore'] != true || items.isEmpty) break;
+            before = items.last['id'] as int;
           }
-          if (page['hasMore'] != true || items.isEmpty) break;
-          before = items.last['id'] as int;
+          audit = loadedAudit;
+        }
+        if (generation != _generation || epoch != _mutationEpoch) return;
+        _syncCursor = baseline;
+        syncedAt = DateTime.now();
+        notice = null;
+        await _persist();
+        if (!_cacheReady) {
+          _syncCursor = null;
+          return;
         }
       }
-      if (generation != _generation || epoch != _mutationEpoch) return;
-      final dataChanged =
-          recordsChanged ||
-          accessChanged ||
-          !_sameMetadata(documents, nextDocuments) ||
-          !_sameMetadata(members, nextMembers) ||
-          nextFiles.keys.any((id) => !documentFiles.containsKey(id)) ||
-          audit.length != nextAudit.length ||
-          (audit.isNotEmpty &&
-              nextAudit.isNotEmpty &&
-              audit.first['id'] != nextAudit.first['id']);
-      records = nextRecords;
-      _recordRevision = revision;
-      documents = nextDocuments;
-      documentFiles = nextFiles;
-      audit = nextAudit;
-      members = nextMembers;
-      documentFiles.removeWhere(
-        (k, _) => !documents.any((d) => '${d['id']}' == k),
-      );
-      online = true;
-      syncedAt = DateTime.now();
-      notice = null;
-      activity.stage(
-        task,
-        dataChanged
-            ? 'Синхронізація · 5/5: оновлення локальної бази Drift'
-            : 'Підтвердження актуальності локальної копії',
-      );
-      await _persist(metadataOnly: !dataChanged);
-      try {
-        await attachments.synchronize();
-      } catch (_) {
-        notice = 'Не всі файли збережено локально. Повторіть оновлення.';
+      var through = 0;
+      bool filesChanged = full || _filesPending;
+      while (true) {
+        final page = await _changes(_syncCursor!, through);
+        if (generation != _generation || epoch != _mutationEpoch) return;
+        if (page['reset'] == true) {
+          await clear();
+          return await _refresh();
+        }
+        through = page['head'] as int;
+        final items = List<Map<String, dynamic>>.from(page['items'] as List);
+        final currentVersions = {for (final r in records) r.id: r.version};
+        final patches = <int, Map<String, dynamic>>{};
+        final removed = <int>{};
+        final events = <int, Map<String, dynamic>>{};
+        for (final item in items) {
+          final raw = item['record'];
+          if (raw is Map && raw['id'] is int) {
+            final record = Map<String, dynamic>.from(raw);
+            final id = record['id'] as int;
+            if ((currentVersions[id] ?? 0) > (record['version'] as int)) {
+              continue;
+            }
+            if (record['deletedAt'] != null) {
+              removed.add(id);
+              patches.remove(id);
+            } else {
+              removed.remove(id);
+              patches[id] = record;
+            }
+          }
+          if (item['audit'] is Map && profile['role'] == 'admin') {
+            final event = Map<String, dynamic>.from(item['audit'] as Map);
+            events[event['id'] as int] = event;
+          }
+        }
+        final docsChanged = items.any((i) => i['documentsChanged'] == true);
+        final membersChanged = items.any((i) => i['membersChanged'] == true);
+        filesChanged |= items.any((i) => i['filesChanged'] == true);
+        if (docsChanged) await _loadDocuments();
+        online = true;
+        if (membersChanged) await refreshMembers();
+        if (generation != _generation || epoch != _mutationEpoch) return;
+        if (patches.isNotEmpty || removed.isNotEmpty) {
+          records = [
+            for (final r in records)
+              if (!removed.contains(r.id) && !patches.containsKey(r.id)) r,
+            ...patches.values.map(CaseRecord.fromJson),
+          ];
+        }
+        if (events.isNotEmpty) {
+          audit = [
+            ...events.values,
+            ...audit.where((e) => !events.containsKey(e['id'])),
+          ]..sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+        }
+        final cursor = page['cursor'] as int;
+        if (!(full && items.isEmpty && cursor == _syncCursor)) {
+          syncedAt = DateTime.now();
+        }
+        notice = null;
+        if (!(full && items.isEmpty && cursor == _syncCursor)) {
+          await _persistDelta({
+            'records': patches.values.toList(),
+            'removedIds': removed.toList(),
+            'audit': events.values.toList(),
+            if (docsChanged) 'documents': documents,
+            if (docsChanged) 'files': documentFiles,
+            if (membersChanged) 'members': members,
+            'profile': {...profile, '_syncCursor': cursor},
+            'syncedAt': syncedAt!.toIso8601String(),
+          }, cursor);
+        }
+        if (generation != _generation || epoch != _mutationEpoch) return;
+        if (!_cacheReady) return;
+        if (page['hasMore'] != true) break;
+      }
+      if (filesChanged) {
+        try {
+          await attachments.synchronize();
+          _filesPending = false;
+        } catch (_) {
+          _filesPending = true;
+          notice = 'Не всі файли збережено локально. Повторіть оновлення.';
+        }
       }
     } on ArchiveFailure catch (e) {
       if (generation != _generation) return;
       online = false;
       notice = e.message;
-      if (e.denied) await clear();
+      if (e.denied) await invalidateAuthentication();
     } on ServerpodClientHttpException catch (e) {
       if (generation != _generation) return;
       online = false;
       if (e.statusCode == 401 || e.statusCode == 403) {
-        await clear();
-        notice = 'Сеанс завершився. Увійдіть знову.';
+        await invalidateAuthentication();
       } else {
         notice = 'Сервер повернув помилку. Доступна остання збережена копія.';
       }
+    } on ArchiveAuthException {
+      if (generation == _generation) await invalidateAuthentication();
     } catch (_) {
       if (generation != _generation) return;
       online = false;
       notice =
           'Немає зв’язку із сервером. Доступна остання збережена копія лише для читання.';
     } finally {
-      activity.end(
-        task,
-        result: online
-            ? 'Синхронізацію завершено'
-            : 'Локальна копія · немає зв’язку із сервером',
-      );
+      activity.end(task);
+    }
+  }
+
+  Future<void> invalidateAuthentication() async {
+    await clear();
+    notice = 'Сеанс завершено. Увійдіть знову.';
+    await client.auth.updateSignedInUser(null);
+  }
+
+  Future<void> _persistDelta(Map<String, dynamic> delta, int cursor) async {
+    final generation = _generation;
+    final local = store;
+    final empty =
+        (delta['records'] as List).isEmpty &&
+        (delta['removedIds'] as List).isEmpty &&
+        (delta['audit'] as List).isEmpty &&
+        !delta.containsKey('documents') &&
+        !delta.containsKey('members');
+    if (empty && _cacheReady && local is SnapshotMetadataStore) {
+      _syncCursor = cursor;
+      await _persist(metadataOnly: true);
+      if (!_cacheReady) _syncCursor = null;
+      return;
+    }
+    if (!_cacheReady || local is! ArchiveDeltaStore) {
+      _syncCursor = cursor;
+      await _persist();
+      if (!_cacheReady) _syncCursor = null;
+      return;
+    }
+    try {
+      _cacheWrites = _cacheWrites.catchError((Object _) {}).then((_) async {
+        if (generation == _generation) {
+          await (local as ArchiveDeltaStore).applyArchiveDelta(cacheKey, delta);
+        }
+      });
+      await _cacheWrites;
+      if (generation == _generation) _syncCursor = cursor;
+    } catch (_) {
+      _cacheReady = false;
+      _syncCursor = null;
+      notice = 'Не вдалося оновити локальну копію. Повторіть оновлення.';
     }
   }
 
@@ -448,7 +582,7 @@ class ArchiveRepository {
     final generation = _generation;
     final local = store;
     if (metadataOnly && _cacheReady && local is SnapshotMetadataStore) {
-      final updatedProfile = Map<String, dynamic>.from(profile);
+      final updatedProfile = {...profile, '_syncCursor': _syncCursor};
       final timestamp = syncedAt!.toIso8601String();
       try {
         _cacheWrites = _cacheWrites.catchError((Object _) {}).then((_) async {
@@ -470,12 +604,18 @@ class ArchiveRepository {
     }
     final snapshot = <String, dynamic>{
       'schemaVersion': 1,
+      'syncCursor': _syncCursor,
       'profile': profile,
       'records': records.map((r) => r.toJson()).toList(),
       'documents': documents,
       'files': documentFiles,
       'audit': audit,
-      'members': members,
+      'members': [
+        for (final m in members)
+          Map<String, dynamic>.from(m)
+            ..remove('online')
+            ..remove('activeSessions'),
+      ],
       'syncedAt': syncedAt!.toIso8601String(),
     };
     try {
@@ -517,7 +657,7 @@ class ArchiveRepository {
       );
       if (generation != _generation) return;
       _mutationEpoch++;
-      _recordRevision = null;
+
       final updated = CaseRecord.fromJson(saved);
       lastSaveMerged = saved['merged'] == true;
       final removed = record != null && record.id != updated.id
@@ -763,9 +903,11 @@ class ArchiveRepository {
 
   Future<void> clear() async {
     _generation++;
+    if (!_notificationsDisposed) dataReset.value++;
     await attachments.clear();
     _cacheReady = false;
-    _recordRevision = null;
+    _syncCursor = null;
+    _filesPending = true;
     profile = {};
     records = [];
     documents = [];

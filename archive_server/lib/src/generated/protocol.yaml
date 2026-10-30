@@ -19,6 +19,10 @@ archive:
   - deleteDocument:
   - restoreDocument:
   - auditEntries:
+archiveMaintenance:
+  - summary:
+  - clearRecords:
+  - clearArchive:
 attachment:
   - list:
   - begin:
@@ -30,6 +34,7 @@ attachment:
   - restore:
 account:
   - changePassword:
+  - deleteMember:
   - resetPassword:
 jwtRefresh:
   - refreshAccessToken:
@@ -38,6 +43,9 @@ login:
   - register:
 greeting:
   - hello:
+archiveSync:
+  - changes:
+  - watch:
 updates:
   - check:
   - download:
