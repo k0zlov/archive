@@ -13,6 +13,7 @@ class ArchiveController extends ChangeNotifier {
   bool loading = false;
   bool pageLoading = false;
   bool _disposed = false;
+  bool _paused = false;
   int _pageRequest = 0;
   String? error;
   String? pageError;
@@ -31,6 +32,7 @@ class ArchiveController extends ChangeNotifier {
       repository.online && canWriteModule(repository.profile, module);
 
   Future<void> loadPage({int? index, bool clear = false}) async {
+    if (_disposed || _paused) return;
     final request = ++_pageRequest;
     final requestedPage = index ?? pageIndex;
     final activity = repository.activity;
@@ -54,7 +56,7 @@ class ArchiveController extends ChangeNotifier {
         page: requestedPage,
         size: pageSize,
       );
-      if (_disposed || request != _pageRequest) return;
+      if (_disposed || _paused || request != _pageRequest) return;
       recordsOnPage = List.unmodifiable(page.records);
       totalRecords = page.total;
       pageIndex = page.page;
@@ -81,15 +83,16 @@ class ArchiveController extends ChangeNotifier {
 
   Future<void> initialize() async {
     await repository.restore();
+    if (_disposed || _paused) return;
     await loadPage();
     await refresh();
-    if (!_disposed) {
+    if (!_disposed && !_paused) {
       _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
     }
   }
 
   Future<void> refresh() async {
-    if (loading || _disposed) return;
+    if (loading || _disposed || _paused) return;
     loading = true;
     _notify();
     try {
@@ -99,6 +102,29 @@ class ArchiveController extends ChangeNotifier {
       loading = false;
       _notify();
     }
+  }
+
+  Future<void> prepareForUpdate() async {
+    _paused = true;
+    _pageRequest++;
+    _timer?.cancel();
+    _searchTimer?.cancel();
+    await repository.prepareForUpdate();
+  }
+
+  Future<void> prepareServerChange() async {
+    _paused = true;
+    _pageRequest++;
+    _timer?.cancel();
+    _searchTimer?.cancel();
+    await repository.clear();
+  }
+
+  void resumeAfterServerChange() {
+    if (_disposed || !_paused) return;
+    _paused = false;
+    unawaited(refresh());
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
   }
 
   void setSearch(String value) {
@@ -138,6 +164,7 @@ class ArchiveController extends ChangeNotifier {
     _pageRequest++;
     _timer?.cancel();
     _searchTimer?.cancel();
+    repository.attachments.dispose();
     repository.activity.dispose();
     super.dispose();
   }

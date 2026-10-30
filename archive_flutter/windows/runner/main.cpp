@@ -7,6 +7,17 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Retain the handle until process termination, including during teardown.
+  HANDLE instance_mutex = ::CreateMutexW(nullptr, FALSE, L"Local\\ArchiveDesktopD06872CE");
+  if (instance_mutex != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    HWND existing = ::FindWindowW(nullptr, L"\u0410\u0440\u0445\u0456\u0432");
+    if (existing != nullptr) {
+      ::ShowWindow(existing, SW_RESTORE);
+      ::SetForegroundWindow(existing);
+    }
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -27,7 +38,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"archive_flutter", origin, size)) {
+  if (!window.Create(L"\u0410\u0440\u0445\u0456\u0432", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

@@ -20,3 +20,15 @@ Future<void> saveFile(String name, Uint8List bytes) async {
 
 Future<void> openWordDocument(String name, Uint8List bytes) =>
     saveFile(name, bytes);
+
+Future<void> handleAttachment(
+  String name,
+  Stream<Uint8List> content,
+  bool open,
+) async {
+  final bytes = BytesBuilder(copy: false);
+  await for (final part in content) {
+    bytes.add(part);
+  }
+  await saveFile(name, bytes.takeBytes());
+}

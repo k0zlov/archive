@@ -16,10 +16,12 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../archive/archive_endpoint.dart' as _ih245e2b;
+import '../archive/attachment_endpoint.dart' as _i6n3eiba;
 import '../auth/account_endpoint.dart' as _ii6ycf6v;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../auth/login_endpoint.dart' as _ibxz4c1d;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
+import '../updates/updates_endpoint.dart' as _i6lltdln;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -29,6 +31,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'archive',
+          null,
+        ),
+      'attachment': _i6n3eiba.AttachmentEndpoint()
+        ..initialize(
+          server,
+          'attachment',
           null,
         ),
       'account': _ii6ycf6v.AccountEndpoint()
@@ -53,6 +61,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'greeting',
+          null,
+        ),
+      'updates': _i6lltdln.UpdatesEndpoint()
+        ..initialize(
+          server,
+          'updates',
           null,
         ),
     };
@@ -502,6 +516,202 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['attachment'] = _is.EndpointConnector(
+      name: 'attachment',
+      endpoint: endpoints['attachment']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'afterId': _is.ParameterDescription(
+              name: 'afterId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .list(
+                        session,
+                        params['afterId'],
+                      ),
+        ),
+        'begin': _is.MethodConnector(
+          name: 'begin',
+          params: {
+            'recordId': _is.ParameterDescription(
+              name: 'recordId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'fileName': _is.ParameterDescription(
+              name: 'fileName',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'byteLength': _is.ParameterDescription(
+              name: 'byteLength',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .begin(
+                        session,
+                        params['recordId'],
+                        params['fileName'],
+                        params['byteLength'],
+                      ),
+        ),
+        'append': _is.MethodConnector(
+          name: 'append',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'chunkIndex': _is.ParameterDescription(
+              name: 'chunkIndex',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'content': _is.ParameterDescription(
+              name: 'content',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .append(
+                        session,
+                        params['id'],
+                        params['chunkIndex'],
+                        params['content'],
+                      ),
+        ),
+        'finish': _is.MethodConnector(
+          name: 'finish',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .finish(
+                        session,
+                        params['id'],
+                      ),
+        ),
+        'cancel': _is.MethodConnector(
+          name: 'cancel',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .cancel(
+                        session,
+                        params['id'],
+                      ),
+        ),
+        'download': _is.MethodConnector(
+          name: 'download',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'chunkIndex': _is.ParameterDescription(
+              name: 'chunkIndex',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .download(
+                        session,
+                        params['id'],
+                        params['chunkIndex'],
+                      ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .delete(
+                        session,
+                        params['id'],
+                      ),
+        ),
+        'restore': _is.MethodConnector(
+          name: 'restore',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['attachment'] as _i6n3eiba.AttachmentEndpoint)
+                      .restore(
+                        session,
+                        params['id'],
+                      ),
+        ),
+      },
+    );
     connectors['account'] = _is.EndpointConnector(
       name: 'account',
       endpoint: endpoints['account']!,
@@ -654,6 +864,47 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['greeting'] as _il624ik7.GreetingEndpoint).hello(
                     session,
                     params['name'],
+                  ),
+        ),
+      },
+    );
+    connectors['updates'] = _is.EndpointConnector(
+      name: 'updates',
+      endpoint: endpoints['updates']!,
+      methodConnectors: {
+        'check': _is.MethodConnector(
+          name: 'check',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['updates'] as _i6lltdln.UpdatesEndpoint)
+                  .check(session),
+        ),
+        'download': _is.MethodConnector(
+          name: 'download',
+          params: {
+            'sha256': _is.ParameterDescription(
+              name: 'sha256',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'offset': _is.ParameterDescription(
+              name: 'offset',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['updates'] as _i6lltdln.UpdatesEndpoint).download(
+                    session,
+                    params['sha256'],
+                    params['offset'],
                   ),
         ),
       },

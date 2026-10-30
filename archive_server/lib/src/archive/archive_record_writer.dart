@@ -3,6 +3,20 @@ import 'package:archive_shared/archive_schema.dart';
 import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 
+Map<String, dynamic> archiveAttachmentJson(
+  ArchiveAttachment a,
+  String module,
+) => {
+  'id': a.id,
+  'recordId': a.recordId,
+  'module': module,
+  'fileName': a.fileName,
+  'byteLength': a.byteLength,
+  'chunkCount': a.chunkCount,
+  'createdAt': a.createdAt.toIso8601String(),
+  'deletedAt': a.deletedAt?.toIso8601String(),
+};
+
 Map<String, String> recordValues(ArchiveRecord record) =>
     Map<String, String>.from(jsonDecode(record.valuesJson) as Map);
 Map<String, dynamic> archiveRecordJson(ArchiveRecord r) => {
@@ -120,6 +134,29 @@ class ArchiveRecordWriter {
             updatedAt: DateTime.now().toUtc(),
           );
     if (merging && current != null) {
+      final files = await ArchiveAttachment.db.find(
+        session,
+        where: (t) => t.recordId.equals(current!.id!),
+        transaction: tx,
+      );
+      for (final file in files) {
+        final moved = file.copyWith(recordId: target!.id!);
+        await ArchiveAttachment.db.updateRow(session, moved, transaction: tx);
+        if (file.status == 'ready') {
+          await ArchiveAudit.db.insertRow(
+            session,
+            archiveChange(
+              actor,
+              'attachment.move',
+              '${file.id}',
+              module: module.name,
+              before: archiveAttachmentJson(file, module.name),
+              after: archiveAttachmentJson(moved, module.name),
+            ),
+            transaction: tx,
+          );
+        }
+      }
       final removed = current.copyWith(
         identityKey: 'deleted:${current.id}:${current.identityKey}',
         deletedAt: DateTime.now().toUtc(),

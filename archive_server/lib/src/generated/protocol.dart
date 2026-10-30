@@ -17,6 +17,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'archive/archive_attachment.dart' as _iu3d2o8l;
+import 'archive/archive_attachment_chunk.dart' as _ir59mhng;
 import 'archive/archive_audit.dart' as _ioyse6ck;
 import 'archive/archive_document.dart' as _ims8sj2t;
 import 'archive/archive_import_job.dart' as _iahw0pji;
@@ -25,6 +27,8 @@ import 'archive/archive_member.dart' as _iimtnz49;
 import 'archive/archive_record.dart' as _ifxelgw5;
 import 'auth/archive_auth_exception.dart' as _iaeozbuv;
 import 'greetings/greeting.dart' as _izw8z7ou;
+export 'archive/archive_attachment.dart';
+export 'archive/archive_attachment_chunk.dart';
 export 'archive/archive_audit.dart';
 export 'archive/archive_document.dart';
 export 'archive/archive_import_job.dart';
@@ -42,6 +46,186 @@ class Protocol extends _is.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._().._registerHostProtocols();
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
+    _isp.TableDefinition(
+      name: 'archive_attachment',
+      dartName: 'ArchiveAttachment',
+      schema: 'public',
+      module: 'archive',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'recordId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'fileName',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'byteLength',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'uploadedBytes',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isp.ColumnDefinition(
+          name: 'chunkCount',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isp.ColumnDefinition(
+          name: 'status',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+          columnDefault: '\'uploading\'',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdBy',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+        _isp.ColumnDefinition(
+          name: 'deletedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'deletedBy',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'archive_attachment_fk_0',
+          columns: ['recordId'],
+          referenceTable: 'archive_record',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'archive_attachment_record_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'recordId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'status',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'deletedAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'archive_attachment_chunk',
+      dartName: 'ArchiveAttachmentChunk',
+      schema: 'public',
+      module: 'archive',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'attachmentId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'chunkIndex',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'content',
+          columnType: _isp.ColumnType.bytea,
+          isNullable: false,
+          dartType: 'dart:typed_data:ByteData',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'archive_attachment_chunk_fk_0',
+          columns: ['attachmentId'],
+          referenceTable: 'archive_attachment',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'archive_attachment_chunk_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'attachmentId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'chunkIndex',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     _isp.TableDefinition(
       name: 'archive_audit',
       dartName: 'ArchiveAudit',
@@ -623,6 +807,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       }
     }
 
+    if (t == _iu3d2o8l.ArchiveAttachment) {
+      return _iu3d2o8l.ArchiveAttachment.fromJson(data) as T;
+    }
+    if (t == _ir59mhng.ArchiveAttachmentChunk) {
+      return _ir59mhng.ArchiveAttachmentChunk.fromJson(data) as T;
+    }
     if (t == _ioyse6ck.ArchiveAudit) {
       return _ioyse6ck.ArchiveAudit.fromJson(data) as T;
     }
@@ -646,6 +836,16 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _izw8z7ou.Greeting) {
       return _izw8z7ou.Greeting.fromJson(data) as T;
+    }
+    if (t == _is.getType<_iu3d2o8l.ArchiveAttachment?>()) {
+      return (data != null ? _iu3d2o8l.ArchiveAttachment.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ir59mhng.ArchiveAttachmentChunk?>()) {
+      return (data != null
+              ? _ir59mhng.ArchiveAttachmentChunk.fromJson(data)
+              : null)
+          as T;
     }
     if (t == _is.getType<_ioyse6ck.ArchiveAudit?>()) {
       return (data != null ? _ioyse6ck.ArchiveAudit.fromJson(data) : null) as T;
@@ -696,6 +896,8 @@ class Protocol extends _is.DatabaseSerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _iu3d2o8l.ArchiveAttachment => 'ArchiveAttachment',
+      _ir59mhng.ArchiveAttachmentChunk => 'ArchiveAttachmentChunk',
       _ioyse6ck.ArchiveAudit => 'ArchiveAudit',
       _ims8sj2t.ArchiveDocument => 'ArchiveDocument',
       _iahw0pji.ArchiveImportJob => 'ArchiveImportJob',
@@ -718,6 +920,10 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
 
     switch (data) {
+      case _iu3d2o8l.ArchiveAttachment():
+        return 'ArchiveAttachment';
+      case _ir59mhng.ArchiveAttachmentChunk():
+        return 'ArchiveAttachmentChunk';
       case _ioyse6ck.ArchiveAudit():
         return 'ArchiveAudit';
       case _ims8sj2t.ArchiveDocument():
@@ -759,6 +965,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'ArchiveAttachment') {
+      return deserialize<_iu3d2o8l.ArchiveAttachment>(data['data']);
+    }
+    if (dataClassName == 'ArchiveAttachmentChunk') {
+      return deserialize<_ir59mhng.ArchiveAttachmentChunk>(data['data']);
     }
     if (dataClassName == 'ArchiveAudit') {
       return deserialize<_ioyse6ck.ArchiveAudit>(data['data']);
@@ -825,6 +1037,10 @@ class Protocol extends _is.DatabaseSerializationManager {
       }
     }
     switch (t) {
+      case _iu3d2o8l.ArchiveAttachment:
+        return _iu3d2o8l.ArchiveAttachment.t;
+      case _ir59mhng.ArchiveAttachmentChunk:
+        return _ir59mhng.ArchiveAttachmentChunk.t;
       case _ioyse6ck.ArchiveAudit:
         return _ioyse6ck.ArchiveAudit.t;
       case _ims8sj2t.ArchiveDocument:

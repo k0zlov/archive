@@ -5,6 +5,7 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
 
 import 'src/cache_busting.dart';
+import 'src/updates/github_release_sync.dart';
 import 'src/generated/serverpod.dart';
 import 'src/web/routes/app_config_route.dart';
 
@@ -88,4 +89,5 @@ void run(List<String> args) async {
 
   // Start the server.
   await pod.start();
+  startWindowsGithubSync();
 }

@@ -14,7 +14,7 @@ class ParticipantsView extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: archivePaper,
+            color: context.archiveColors.subtleSurface,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Wrap(
@@ -31,7 +31,7 @@ class ParticipantsView extends StatelessWidget {
               if (p.proceeding.isNotEmpty)
                 SelectableText(
                   'Провадження № ${p.proceeding}',
-                  style: const TextStyle(color: archiveInk),
+                  style: TextStyle(color: context.archiveScheme.primary),
                 ),
             ],
           ),

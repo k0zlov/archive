@@ -1,3 +1,4 @@
+import 'theme.dart';
 import 'package:flutter/material.dart';
 import '../data/auth_gateway.dart';
 
@@ -120,7 +121,10 @@ class _PasswordChangeFormState extends State<PasswordChangeForm> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: Text(error!, style: const TextStyle(color: Colors.red)),
+              child: Text(
+                error!,
+                style: TextStyle(color: context.archiveScheme.error),
+              ),
             ),
           FilledButton(
             onPressed: busy ? null : save,

@@ -16,6 +16,8 @@ import 'record_dialogs.dart';
 import 'theme.dart';
 import 'archive_status_text.dart';
 import 'password_dialog.dart';
+import 'server_settings_dialog.dart';
+import '../data/updates/windows_updates.dart';
 
 class ArchiveShell extends StatefulWidget {
   const ArchiveShell({super.key, required this.userId, this.controller});
@@ -27,6 +29,7 @@ class ArchiveShell extends StatefulWidget {
 
 class _ArchiveShellState extends State<ArchiveShell> {
   ArchiveController? controller;
+  VoidCallback? unregisterUpdates;
   String page = 'overview';
   ArchiveModule inventoryModule = ArchiveModule.court;
   String inventoryKind = 'Тривале';
@@ -36,25 +39,38 @@ class _ArchiveShellState extends State<ArchiveShell> {
     super.initState();
     if (widget.controller != null) {
       controller = widget.controller;
+      registerUpdates();
     } else {
       initialize();
     }
   }
 
   Future<void> initialize() async {
+    final source = client;
+    final address = serverConnection.url;
     final repo = ArchiveRepository(
-      client: client,
+      client: source,
       store: createCacheStore(),
-      server: await serverUrl,
+      server: address,
       userId: widget.userId,
     );
     if (!mounted) return;
     setState(() => controller = ArchiveController(repo));
+    registerUpdates();
     unawaited(controller!.initialize());
+  }
+
+  void registerUpdates() {
+    final c = controller!;
+    unregisterUpdates = windowsUpdates?.registerPreparation(
+      c.prepareForUpdate,
+      c.resumeAfterServerChange,
+    );
   }
 
   @override
   void dispose() {
+    unregisterUpdates?.call();
     if (widget.controller == null) controller?.dispose();
     super.dispose();
   }
@@ -64,7 +80,7 @@ class _ArchiveShellState extends State<ArchiveShell> {
     setState(() => signingOut = true);
     try {
       await controller!.repository.clear();
-      await client.auth.signOutDevice();
+      await controller!.repository.client.auth.signOutDevice();
     } catch (_) {
       if (mounted) {
         showArchiveMessage(
@@ -74,6 +90,15 @@ class _ArchiveShellState extends State<ArchiveShell> {
       }
     } finally {
       if (mounted) setState(() => signingOut = false);
+    }
+  }
+
+  Future<void> openSettings() async {
+    final c = controller;
+    final generation = serverConnection.generation;
+    await showServerSettings(context, beforeSwitch: c?.prepareServerChange);
+    if (mounted && generation == serverConnection.generation) {
+      c?.resumeAfterServerChange();
     }
   }
 
@@ -103,6 +128,15 @@ class _ArchiveShellState extends State<ArchiveShell> {
         final repo = c.repository;
         if (repo.profile['passwordChangeRequired'] == true) {
           return Scaffold(
+            appBar: AppBar(
+              actions: [
+                IconButton(
+                  onPressed: openSettings,
+                  tooltip: 'Налаштування',
+                  icon: const Icon(Icons.settings_outlined),
+                ),
+              ],
+            ),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -291,6 +325,14 @@ class _ArchiveShellState extends State<ArchiveShell> {
                 ),
                 const SizedBox(height: 12),
                 TextButton.icon(
+                  onPressed: signingOut ? null : openSettings,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFB9C9BF),
+                  ),
+                  icon: const Icon(Icons.settings_outlined, size: 17),
+                  label: const Text('Налаштування'),
+                ),
+                TextButton.icon(
                   onPressed: signingOut ? null : signOut,
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFFB9C9BF),
@@ -321,9 +363,11 @@ class _ArchiveShellState extends State<ArchiveShell> {
                               horizontal: wide ? 34 : 18,
                               vertical: 16,
                             ),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(color: Color(0xFFE0E3DC)),
+                                bottom: BorderSide(
+                                  color: context.archiveScheme.outlineVariant,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -367,15 +411,15 @@ class _ArchiveShellState extends State<ArchiveShell> {
                           ),
                           if (repo.notice != null)
                             Container(
-                              color: const Color(0xFFF3EAD2),
+                              color: context.archiveColors.warningSurface,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
                               ),
                               child: Text(
                                 repo.notice!,
-                                style: const TextStyle(
-                                  color: Color(0xFF78582D),
+                                style: TextStyle(
+                                  color: context.archiveColors.warningText,
                                   fontSize: 12,
                                 ),
                               ),
@@ -523,7 +567,7 @@ class _ArchiveShellState extends State<ArchiveShell> {
                     ? (constraints.maxWidth - 16) / 2
                     : constraints.maxWidth,
                 child: Material(
-                  color: Colors.white,
+                  color: context.archiveScheme.surface,
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
@@ -539,12 +583,12 @@ class _ArchiveShellState extends State<ArchiveShell> {
                                 m == ArchiveModule.court
                                     ? Icons.balance_outlined
                                     : Icons.folder_copy_outlined,
-                                color: archiveInk,
+                                color: context.archiveScheme.primary,
                               ),
                               const Spacer(),
-                              const Icon(
+                              Icon(
                                 Icons.arrow_outward,
-                                color: Color(0xFF8A998E),
+                                color: context.archiveScheme.onSurfaceVariant,
                                 size: 20,
                               ),
                             ],
@@ -680,7 +724,10 @@ class _ArchiveShellState extends State<ArchiveShell> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Text(
             'Знайдено справ: ${c.totalRecords}',
-            style: const TextStyle(color: Color(0xFF708073), fontSize: 12),
+            style: TextStyle(
+              color: context.archiveScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
           ),
         ),
 
@@ -730,7 +777,10 @@ class _ArchiveShellState extends State<ArchiveShell> {
               c.totalRecords == 0
                   ? 'Справ на сторінці: 0'
                   : 'Показано ${c.pageIndex * ArchiveController.pageSize + 1}–${c.pageIndex * ArchiveController.pageSize + records.length} із ${c.totalRecords}',
-              style: const TextStyle(color: Color(0xFF708073), fontSize: 12),
+              style: TextStyle(
+                color: context.archiveScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -760,7 +810,7 @@ class _ArchiveShellState extends State<ArchiveShell> {
   Widget recordTile(ArchiveController c, CaseRecord r) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Material(
-      color: Colors.white,
+      color: context.archiveScheme.surface,
       borderRadius: BorderRadius.circular(12),
       child: ListTile(
         onTap: () => showArchiveRecord(context, c, r),
@@ -771,12 +821,12 @@ class _ArchiveShellState extends State<ArchiveShell> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: archivePaper,
+            color: context.archiveColors.subtleSurface,
             borderRadius: BorderRadius.circular(9),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.description_outlined,
-            color: archiveInk,
+            color: context.archiveScheme.primary,
             size: 22,
           ),
         ),
@@ -792,10 +842,10 @@ class _ArchiveShellState extends State<ArchiveShell> {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(height: 1.6, fontSize: 12),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right,
           size: 22,
-          color: Color(0xFF8A998E),
+          color: context.archiveScheme.onSurfaceVariant,
         ),
       ),
     ),
@@ -860,12 +910,12 @@ class _ArchiveShellState extends State<ArchiveShell> {
                     final doc = docs[i];
                     return Card(
                       elevation: 0,
-                      color: Colors.white,
+                      color: context.archiveScheme.surface,
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.article_outlined,
-                          color: archiveInk,
+                          color: context.archiveScheme.primary,
                         ),
                         title: Text('${doc['title']}'),
                         subtitle: Text('${doc['year']} · ${doc['fileName']}'),
@@ -995,9 +1045,12 @@ class _ArchiveShellState extends State<ArchiveShell> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'До опису входять справи відповідного виду зберігання з позначкою «Справа підлягає внесенню до опису: Так». Строки та вид зберігання заповнюються вручну.',
-          style: TextStyle(color: Colors.black54, height: 1.6),
+          style: TextStyle(
+            color: context.archiveScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
         ),
         const SizedBox(height: 16),
         Text('Справ у списку: ${records.length}'),

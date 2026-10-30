@@ -5,7 +5,8 @@ const archiveInk = Color(0xFF173C34);
 const archivePaper = Color(0xFFF5F4EF);
 const archiveAccent = Color(0xFFB8D7A0);
 
-ThemeData archiveTheme() {
+ThemeData archiveTheme({Brightness brightness = Brightness.light}) {
+  final dark = brightness == Brightness.dark;
   GoogleFonts.config.allowRuntimeFetching = false;
   final buttonText = GoogleFonts.manrope(
     fontSize: 14,
@@ -18,32 +19,54 @@ ThemeData archiveTheme() {
   final scheme =
       ColorScheme.fromSeed(
         seedColor: archiveInk,
-        brightness: Brightness.light,
+        brightness: brightness,
       ).copyWith(
-        primary: archiveInk,
-        secondary: const Color(0xFF607A43),
-        surface: Colors.white,
+        primary: dark ? archiveAccent : archiveInk,
+        onPrimary: dark ? archiveInk : Colors.white,
+        secondary: dark ? archiveAccent : const Color(0xFF607A43),
+        surface: dark ? const Color(0xFF202725) : Colors.white,
+        onSurface: dark ? const Color(0xFFE5EAE6) : const Color(0xFF27332F),
+        onSurfaceVariant: dark
+            ? const Color(0xFFB8C3BE)
+            : const Color(0xFF59695F),
+        outlineVariant: dark
+            ? const Color(0xFF46514B)
+            : const Color(0xFFDDDFD7),
+        error: dark ? const Color(0xFFFFB4AB) : const Color(0xFF9C392C),
+        errorContainer: dark
+            ? const Color(0xFF51302C)
+            : const Color(0xFFFFE6DF),
+        onErrorContainer: dark
+            ? const Color(0xFFFFDAD4)
+            : const Color(0xFF782B21),
       );
-  return ThemeData(
-    colorScheme: scheme,
-    scaffoldBackgroundColor: archivePaper,
-    textTheme: GoogleFonts.manropeTextTheme().apply(
-      bodyColor: const Color(0xFF27332F),
-      displayColor: archiveInk,
+  final paper = dark ? const Color(0xFF161C1A) : archivePaper;
+  final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+  return base.copyWith(
+    scaffoldBackgroundColor: paper,
+    extensions: [dark ? ArchiveColors.dark : ArchiveColors.light],
+    textTheme: GoogleFonts.manropeTextTheme(base.textTheme).apply(
+      bodyColor: scheme.onSurface,
+      displayColor: dark ? scheme.onSurface : archiveInk,
     ),
-    useMaterial3: true,
-    appBarTheme: const AppBarTheme(backgroundColor: archivePaper, elevation: 0),
+    appBarTheme: AppBarTheme(
+      backgroundColor: paper,
+      foregroundColor: scheme.onSurface,
+      elevation: 0,
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: scheme.surface,
+      labelStyle: TextStyle(color: scheme.onSurfaceVariant),
+      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFDDDFD7)),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFDDDFD7)),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -72,7 +95,7 @@ ThemeData archiveTheme() {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     ),
-    dividerColor: const Color(0xFFE0E3DC),
+    dividerColor: scheme.outlineVariant,
   );
 }
 
@@ -100,10 +123,16 @@ class EmptyArchive extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: archiveInk.withValues(alpha: .06),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .08),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Icon(icon, size: 38, color: archiveInk),
+              child: Icon(
+                icon,
+                size: 38,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
@@ -117,7 +146,10 @@ class EmptyArchive extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF67766D), height: 1.6),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.6,
+              ),
             ),
             if (action != null) ...[const SizedBox(height: 24), action!],
           ],
@@ -129,3 +161,56 @@ class EmptyArchive extends StatelessWidget {
 
 void showArchiveMessage(BuildContext context, String text) =>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+@immutable
+class ArchiveColors extends ThemeExtension<ArchiveColors> {
+  const ArchiveColors({
+    required this.panel,
+    required this.subtleSurface,
+    required this.warningSurface,
+    required this.warningText,
+  });
+  final Color panel, subtleSurface, warningSurface, warningText;
+  static const light = ArchiveColors(
+    panel: Color(0xFFEBEBE7),
+    subtleSurface: Color(0xFFF5F4EF),
+    warningSurface: Color(0xFFF3EAD2),
+    warningText: Color(0xFF78582D),
+  );
+  static const dark = ArchiveColors(
+    panel: Color(0xFF2B302D),
+    subtleSurface: Color(0xFF29332D),
+    warningSurface: Color(0xFF3B3221),
+    warningText: Color(0xFFF4D38F),
+  );
+  @override
+  ArchiveColors copyWith({
+    Color? panel,
+    Color? subtleSurface,
+    Color? warningSurface,
+    Color? warningText,
+  }) => ArchiveColors(
+    panel: panel ?? this.panel,
+    subtleSurface: subtleSurface ?? this.subtleSurface,
+    warningSurface: warningSurface ?? this.warningSurface,
+    warningText: warningText ?? this.warningText,
+  );
+  @override
+  ArchiveColors lerp(covariant ArchiveColors? other, double t) => other == null
+      ? this
+      : ArchiveColors(
+          panel: Color.lerp(panel, other.panel, t)!,
+          subtleSurface: Color.lerp(subtleSurface, other.subtleSurface, t)!,
+          warningSurface: Color.lerp(warningSurface, other.warningSurface, t)!,
+          warningText: Color.lerp(warningText, other.warningText, t)!,
+        );
+}
+
+extension ArchiveThemeContext on BuildContext {
+  ColorScheme get archiveScheme => Theme.of(this).colorScheme;
+  ArchiveColors get archiveColors =>
+      Theme.of(this).extension<ArchiveColors>() ??
+      (Theme.of(this).brightness == Brightness.dark
+          ? ArchiveColors.dark
+          : ArchiveColors.light);
+}

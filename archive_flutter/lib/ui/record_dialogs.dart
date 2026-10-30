@@ -4,6 +4,8 @@ import '../data/archive_repository.dart';
 import 'archive_controller.dart';
 import 'theme.dart';
 import 'participants_editor.dart';
+import 'attachment_panel.dart';
+import 'record_layout.dart';
 
 Future<void> editArchiveRecord(
   BuildContext context,
@@ -85,8 +87,9 @@ class _RecordEditorState extends State<_RecordEditor> {
   @override
   Widget build(BuildContext context) => Dialog(
     insetPadding: const EdgeInsets.all(20),
+    clipBehavior: Clip.antiAlias,
     child: SizedBox(
-      width: 940,
+      width: 1210,
       height: MediaQuery.sizeOf(context).height * .9,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,7 +112,9 @@ class _RecordEditorState extends State<_RecordEditor> {
                       const SizedBox(height: 4),
                       Text(
                         module.label,
-                        style: const TextStyle(color: Colors.black54),
+                        style: TextStyle(
+                          color: context.archiveScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -124,163 +129,171 @@ class _RecordEditorState extends State<_RecordEditor> {
           ),
           if (error != null)
             Container(
-              color: const Color(0xFFFFE6DF),
+              color: context.archiveScheme.errorContainer,
               padding: const EdgeInsets.all(18),
               child: Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9C392C)),
+                style: TextStyle(color: context.archiveScheme.error),
               ),
             ),
           const Divider(height: 1),
           Expanded(
-            child: SingleChildScrollView(
-              key: const ValueKey('record-editor-scroll'),
-              controller: scrollController,
-              primary: false,
-              physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.all(24),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final section in fields.map((f) => f.section).toSet())
-                      ExpansionTile(
-                        key: ValueKey('record-section-$section'),
-                        maintainState: true,
-                        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-                        expandedAlignment: Alignment.centerLeft,
-                        initiallyExpanded:
-                            section == 'Інформація про справу' ||
-                            section == 'Номери справи',
-                        tilePadding: EdgeInsets.zero,
-                        title: Text(
-                          section,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        children: [
-                          if (section == 'Учасники справи')
-                            ParticipantsEditor(
-                              initial: participants,
-                              enabled: !saving,
-                              onChanged: (value) => participants = value,
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Wrap(
-                              alignment: WrapAlignment.start,
-                              spacing: 20,
-                              runSpacing: 20,
-                              children: [
-                                for (final f in fields.where(
-                                  (f) =>
-                                      f.section == section &&
-                                      ![
-                                        'participants',
-                                        'proceedingNumber',
-                                      ].contains(f.key),
-                                ))
-                                  SizedBox(
-                                    width:
-                                        constraints.maxWidth > 640 &&
-                                            f.kind != FieldKind.multiline
-                                        ? (constraints.maxWidth - 20) / 2
-                                        : constraints.maxWidth,
-                                    child: f.kind == FieldKind.choice
-                                        ? DropdownButtonFormField<String>(
-                                            initialValue:
-                                                inputs[f.key]!.text.isEmpty
-                                                ? null
-                                                : inputs[f.key]!.text,
-                                            isExpanded: true,
-                                            decoration: InputDecoration(
-                                              labelText: f.label,
-                                            ),
-                                            items: [
-                                              const DropdownMenuItem(
-                                                value: '',
-                                                child: Text('Не зазначено'),
-                                              ),
-                                              ...f.options.map(
-                                                (o) => DropdownMenuItem(
-                                                  value: o,
-                                                  child: Text(o),
-                                                ),
-                                              ),
-                                            ],
-                                            onChanged: saving
-                                                ? null
-                                                : (v) => inputs[f.key]!.text =
-                                                      v ?? '',
-                                          )
-                                        : TextField(
-                                            key: ValueKey(
-                                              'record-field-${f.key}',
-                                            ),
-                                            controller: inputs[f.key],
-                                            enabled: !saving,
-                                            maxLines:
-                                                f.kind == FieldKind.multiline
-                                                ? 3
-                                                : 1,
-                                            keyboardType:
-                                                f.kind == FieldKind.number
-                                                ? TextInputType.number
-                                                : f.kind == FieldKind.multiline
-                                                ? TextInputType.multiline
-                                                : TextInputType.text,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  '${f.label}${f.required ? ' *' : ''}',
-                                              hintText: f.kind == FieldKind.date
-                                                  ? 'ДД.ММ.РРРР'
-                                                  : null,
-                                              suffixIcon:
-                                                  f.kind != FieldKind.date
-                                                  ? null
-                                                  : IconButton(
-                                                      tooltip: 'Обрати дату',
-                                                      onPressed: () async {
-                                                        final date =
-                                                            await showDatePicker(
-                                                              context: context,
-                                                              initialDate:
-                                                                  parseArchiveDate(
-                                                                    inputs[f.key]!
-                                                                        .text,
-                                                                  ) ??
-                                                                  DateTime.now(),
-                                                              firstDate:
-                                                                  DateTime(
-                                                                    1700,
-                                                                  ),
-                                                              lastDate:
-                                                                  DateTime(
-                                                                    2300,
-                                                                  ),
-                                                            );
-                                                        if (date != null) {
-                                                          inputs[f.key]!.text =
-                                                              displayDate(
-                                                                isoDate(date),
-                                                              );
-                                                        }
-                                                      },
-                                                      icon: const Icon(
-                                                        Icons
-                                                            .calendar_today_outlined,
-                                                        size: 18,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ),
-                                  ),
-                              ],
-                            ),
+            child: RecordDialogBody(
+              information: SingleChildScrollView(
+                key: const ValueKey('record-editor-scroll'),
+                controller: scrollController,
+                primary: false,
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final section
+                          in fields.map((f) => f.section).toSet())
+                        ExpansionTile(
+                          key: ValueKey('record-section-$section'),
+                          maintainState: true,
+                          expandedCrossAxisAlignment:
+                              CrossAxisAlignment.stretch,
+                          expandedAlignment: Alignment.centerLeft,
+                          initiallyExpanded:
+                              section == 'Інформація про справу' ||
+                              section == 'Номери справи',
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(
+                            section,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
-                        ],
-                      ),
-                  ],
+                          children: [
+                            if (section == 'Учасники справи')
+                              ParticipantsEditor(
+                                initial: participants,
+                                enabled: !saving,
+                                onChanged: (value) => participants = value,
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Wrap(
+                                alignment: WrapAlignment.start,
+                                spacing: 20,
+                                runSpacing: 20,
+                                children: [
+                                  for (final f in fields.where(
+                                    (f) =>
+                                        f.section == section &&
+                                        ![
+                                          'participants',
+                                          'proceedingNumber',
+                                        ].contains(f.key),
+                                  ))
+                                    SizedBox(
+                                      width:
+                                          constraints.maxWidth > 640 &&
+                                              f.kind != FieldKind.multiline
+                                          ? (constraints.maxWidth - 20) / 2
+                                          : constraints.maxWidth,
+                                      child: f.kind == FieldKind.choice
+                                          ? DropdownButtonFormField<String>(
+                                              initialValue:
+                                                  inputs[f.key]!.text.isEmpty
+                                                  ? null
+                                                  : inputs[f.key]!.text,
+                                              isExpanded: true,
+                                              decoration: InputDecoration(
+                                                labelText: f.label,
+                                              ),
+                                              items: [
+                                                const DropdownMenuItem(
+                                                  value: '',
+                                                  child: Text('Не зазначено'),
+                                                ),
+                                                ...f.options.map(
+                                                  (o) => DropdownMenuItem(
+                                                    value: o,
+                                                    child: Text(o),
+                                                  ),
+                                                ),
+                                              ],
+                                              onChanged: saving
+                                                  ? null
+                                                  : (v) => inputs[f.key]!.text =
+                                                        v ?? '',
+                                            )
+                                          : TextField(
+                                              key: ValueKey(
+                                                'record-field-${f.key}',
+                                              ),
+                                              controller: inputs[f.key],
+                                              enabled: !saving,
+                                              maxLines:
+                                                  f.kind == FieldKind.multiline
+                                                  ? 3
+                                                  : 1,
+                                              keyboardType:
+                                                  f.kind == FieldKind.number
+                                                  ? TextInputType.number
+                                                  : f.kind ==
+                                                        FieldKind.multiline
+                                                  ? TextInputType.multiline
+                                                  : TextInputType.text,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '${f.label}${f.required ? ' *' : ''}',
+                                                hintText:
+                                                    f.kind == FieldKind.date
+                                                    ? 'ДД.ММ.РРРР'
+                                                    : null,
+                                                suffixIcon:
+                                                    f.kind != FieldKind.date
+                                                    ? null
+                                                    : IconButton(
+                                                        tooltip: 'Обрати дату',
+                                                        onPressed: () async {
+                                                          final date = await showDatePicker(
+                                                            context: context,
+                                                            initialDate:
+                                                                parseArchiveDate(
+                                                                  inputs[f.key]!
+                                                                      .text,
+                                                                ) ??
+                                                                DateTime.now(),
+                                                            firstDate: DateTime(
+                                                              1700,
+                                                            ),
+                                                            lastDate: DateTime(
+                                                              2300,
+                                                            ),
+                                                          );
+                                                          if (date != null) {
+                                                            inputs[f.key]!
+                                                                    .text =
+                                                                displayDate(
+                                                                  isoDate(date),
+                                                                );
+                                                          }
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .calendar_today_outlined,
+                                                          size: 18,
+                                                        ),
+                                                      ),
+                                              ),
+                                            ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
+              ),
+              files: AttachmentPanel(
+                repository: widget.controller.repository,
+                record: widget.record,
               ),
             ),
           ),
@@ -334,16 +347,21 @@ class _RecordCard extends StatefulWidget {
 }
 
 class _RecordCardState extends State<_RecordCard> {
-  List<Map<String, dynamic>>? related;
-  String? error;
-  bool loading = false;
+  final scrollController = ScrollController();
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.record;
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        width: 860,
+        width: 1130,
         height: MediaQuery.sizeOf(context).height * .88,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -376,64 +394,75 @@ class _RecordCardState extends State<_RecordCard> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final section
-                        in r.module.fields.map((f) => f.section).toSet()) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16, bottom: 14),
-                        child: Text(
-                          section.toUpperCase(),
-                          style: const TextStyle(
-                            color: archiveInk,
-                            letterSpacing: 1.3,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      for (final f in r.module.fields.where(
-                        (f) =>
-                            f.section == section &&
-                            (r.values[f.key] ?? '').isNotEmpty &&
-                            f.key != 'participants' &&
-                            !(f.key == 'proceedingNumber' &&
-                                r.values.containsKey('participantDetails')),
-                      ))
+              child: RecordDialogBody(
+                information: SingleChildScrollView(
+                  key: const ValueKey('record-view-scroll'),
+                  controller: scrollController,
+                  primary: false,
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final section
+                          in r.module.fields.map((f) => f.section).toSet()) ...[
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                f.label,
-                                style: const TextStyle(
-                                  color: Color(0xFF708073),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              SelectableText(
-                                f.kind == FieldKind.date
-                                    ? displayDate(r.values[f.key]!)
-                                    : r.values[f.key]!,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.only(top: 16, bottom: 14),
+                          child: Text(
+                            section.toUpperCase(),
+                            style: TextStyle(
+                              color: context.archiveScheme.primary,
+                              letterSpacing: 1.3,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      if (section == 'Учасники справи')
-                        ParticipantsView(
-                          participants: caseParticipants(r.values),
-                        ),
+                        for (final f in r.module.fields.where(
+                          (f) =>
+                              f.section == section &&
+                              (r.values[f.key] ?? '').isNotEmpty &&
+                              f.key != 'participants' &&
+                              !(f.key == 'proceedingNumber' &&
+                                  r.values.containsKey('participantDetails')),
+                        ))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  f.label,
+                                  style: TextStyle(
+                                    color:
+                                        context.archiveScheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                SelectableText(
+                                  f.kind == FieldKind.date
+                                      ? displayDate(r.values[f.key]!)
+                                      : r.values[f.key]!,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (section == 'Учасники справи')
+                          ParticipantsView(
+                            participants: caseParticipants(r.values),
+                          ),
+                      ],
                     ],
-                  ],
+                  ),
+                ),
+                files: AttachmentPanel(
+                  repository: widget.controller.repository,
+                  record: widget.record,
                 ),
               ),
             ),

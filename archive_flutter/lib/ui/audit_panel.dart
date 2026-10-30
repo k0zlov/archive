@@ -14,6 +14,10 @@ const auditActionLabels = {
   'record.import.create': 'Створення з Excel',
   'record.import.update': 'Доповнення з Excel',
   'record.identity-migration': 'Оновлення ідентифікації справи',
+  'attachment.create': 'Додавання файлу до справи',
+  'attachment.delete': 'Видалення файлу справи',
+  'attachment.restore': 'Відновлення файлу справи',
+  'attachment.move': 'Перенесення файлу при об’єднанні справ',
   'document.create': 'Додавання номенклатури',
   'document.delete': 'Видалення номенклатури',
   'document.restore': 'Відновлення номенклатури',
@@ -210,7 +214,14 @@ class _AuditPanelState extends State<AuditPanel> {
                         TableRow(
                           children: [
                             for (final value in [
-                              fields[key] ?? key,
+                              fields[key] ??
+                                  const {
+                                    'recordId': 'Справа',
+                                    'fileName': 'Назва файлу',
+                                    'byteLength': 'Розмір файлу',
+                                    'createdAt': 'Додано',
+                                  }[key] ??
+                                  key,
                               oldValues[key] ?? '—',
                               newValues[key] ?? '—',
                             ])
@@ -258,7 +269,11 @@ class _AuditPanelState extends State<AuditPanel> {
             child: const Text('Закрити'),
           ),
           if (widget.controller.repository.online &&
-              ['record.delete', 'document.delete'].contains(entry['action']))
+              [
+                'record.delete',
+                'document.delete',
+                'attachment.delete',
+              ].contains(entry['action']))
             FilledButton.icon(
               onPressed: () => Navigator.pop(context, true),
               icon: const Icon(Icons.restore),
@@ -272,6 +287,8 @@ class _AuditPanelState extends State<AuditPanel> {
         final id = int.parse('${entry['target']}');
         if (entry['action'] == 'record.delete') {
           await widget.controller.repository.restoreRecord(id);
+        } else if (entry['action'] == 'attachment.delete') {
+          await widget.controller.repository.attachments.restoreFile(id);
         } else {
           await widget.controller.repository.restoreDocument(id);
         }
@@ -324,7 +341,10 @@ class _AuditPanelState extends State<AuditPanel> {
         if (error != null)
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(error!, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              error!,
+              style: TextStyle(color: context.archiveScheme.error),
+            ),
           ),
         const SizedBox(height: 12),
         Expanded(
@@ -353,10 +373,13 @@ class _AuditPanelState extends State<AuditPanel> {
                         e['target'];
                     return Card(
                       elevation: 0,
-                      color: Colors.white,
+                      color: context.archiveScheme.surface,
                       child: ListTile(
                         onTap: () => detail(e),
-                        leading: const Icon(Icons.history, color: archiveInk),
+                        leading: Icon(
+                          Icons.history,
+                          color: context.archiveScheme.primary,
+                        ),
                         title: Text(
                           '${auditActionLabels[e['action']] ?? e['action']} · $reference',
                         ),

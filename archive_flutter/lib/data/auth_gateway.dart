@@ -10,19 +10,28 @@ abstract class AuthGateway {
 }
 
 class ServerpodAuthGateway implements AuthGateway {
+  Future<void> _authenticate(
+    Future<AuthSuccess> Function(Client source) request,
+  ) async {
+    final source = client;
+    final result = await request(source);
+    await serverConnection.updateAuthentication(
+      source,
+      () => source.auth.updateSignedInUser(result),
+    );
+  }
+
   @override
-  Future<void> login(String login, String password) async =>
-      client.auth.updateSignedInUser(await client.login.login(login, password));
+  Future<void> login(String login, String password) =>
+      _authenticate((source) => source.login.login(login, password));
   @override
-  Future<void> register(String login, String password) async => client.auth
-      .updateSignedInUser(await client.login.register(login, password));
+  Future<void> register(String login, String password) =>
+      _authenticate((source) => source.login.register(login, password));
   @override
-  Future<void> changePassword(
-    String currentPassword,
-    String newPassword,
-  ) async => client.auth.updateSignedInUser(
-    await client.account.changePassword(currentPassword, newPassword),
-  );
+  Future<void> changePassword(String currentPassword, String newPassword) =>
+      _authenticate(
+        (source) => source.account.changePassword(currentPassword, newPassword),
+      );
   @override
   Future<String> resetPassword(int memberId) =>
       client.account.resetPassword(memberId);

@@ -98,7 +98,10 @@ class _AdminPanelState extends State<AdminPanel> {
                         : (v) => update(() => court = v),
                   ),
                   if (saveError != null)
-                    Text(saveError!, style: const TextStyle(color: Colors.red)),
+                    Text(
+                      saveError!,
+                      style: TextStyle(color: context.archiveScheme.error),
+                    ),
                 ],
               ),
             ),
@@ -228,10 +231,13 @@ class _AdminPanelState extends State<AdminPanel> {
           padding: const EdgeInsets.only(bottom: 20),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Нові користувачі очікують підтвердження. Читачі переглядають дані, редактори можуть додавати та змінювати справи.',
-                  style: TextStyle(height: 1.6, color: Colors.black54),
+                  style: TextStyle(
+                    height: 1.6,
+                    color: context.archiveScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               IconButton(
@@ -256,12 +262,12 @@ class _AdminPanelState extends State<AdminPanel> {
                   horizontal: 8,
                 ),
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFE4EADD),
+                  backgroundColor: context.archiveColors.subtleSurface,
                   child: Icon(
                     member['role'] == 'pending'
                         ? Icons.person_add_alt_outlined
                         : Icons.person_outline,
-                    color: archiveInk,
+                    color: context.archiveScheme.primary,
                   ),
                 ),
                 title: Text('${member['login'] ?? member['email']}'),

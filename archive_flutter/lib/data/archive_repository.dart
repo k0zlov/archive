@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show compute, mapEquals;
 import 'cache_store.dart';
 import 'record_page.dart';
 import 'archive_activity.dart';
+import 'attachment_repository.dart';
 
 Map<String, dynamic> _decodeArchiveJson(String raw) =>
     jsonDecode(raw) as Map<String, dynamic>;
@@ -80,6 +81,7 @@ class ArchiveRepository {
   final CacheStore store;
   final String cacheKey;
   final activity = ArchiveActivity();
+  late final attachments = AttachmentRepository(this);
   int _mutationEpoch = 0;
   Future<void>? _refreshInFlight;
   Map<String, dynamic> profile = {};
@@ -177,10 +179,18 @@ class ArchiveRepository {
     String method, [
     Map<String, dynamic> args = const {},
   ]) async {
+    return requestTo('archive', method, args);
+  }
+
+  Future<dynamic> requestTo(
+    String endpoint,
+    String method,
+    Map<String, dynamic> args,
+  ) async {
     final task = activity.begin(archiveRequestLabel(method), priority: -1);
     try {
       final raw = await client
-          .callServerEndpoint<String>('archive', method, args)
+          .callServerEndpoint<String>(endpoint, method, args)
           .timeout(
             method == 'commitImport'
                 ? const Duration(minutes: 5)
@@ -228,6 +238,7 @@ class ArchiveRepository {
           .toList();
       syncedAt = DateTime.parse(data['syncedAt'] as String);
       _cacheReady = true;
+      await attachments.restore();
     } catch (_) {
       notice = 'Локальний кеш не вдалося прочитати. Підключіться до сервера.';
     } finally {
@@ -264,6 +275,7 @@ class ArchiveRepository {
         'managementAccess',
       ].any((key) => profile[key] != nextProfile[key]);
       profile = nextProfile;
+      if (accessChanged) await attachments.purgeUnauthorized();
       if (profile['role'] != 'admin') {
         audit = [];
         members = [];
@@ -397,6 +409,11 @@ class ArchiveRepository {
             : 'Підтвердження актуальності локальної копії',
       );
       await _persist(metadataOnly: !dataChanged);
+      try {
+        await attachments.synchronize();
+      } catch (_) {
+        notice = 'Не всі файли збережено локально. Повторіть оновлення.';
+      }
     } on ArchiveFailure catch (e) {
       if (generation != _generation) return;
       online = false;
@@ -534,6 +551,7 @@ class ArchiveRepository {
       } else {
         await _persist();
       }
+      if (lastSaveMerged) await attachments.synchronize();
       activity.end(task, result: 'Справу збережено');
     } catch (_) {
       activity.end(task, result: 'Не вдалося зберегти справу');
@@ -737,8 +755,15 @@ class ArchiveRepository {
     }
   }
 
+  Future<void> prepareForUpdate() async {
+    _generation++;
+    await attachments.prepareForUpdate();
+    await _cacheWrites.catchError((Object _) {});
+  }
+
   Future<void> clear() async {
     _generation++;
+    await attachments.clear();
     _cacheReady = false;
     _recordRevision = null;
     profile = {};

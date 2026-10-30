@@ -52,6 +52,24 @@ class LocalMembers extends Table {
   Set<Column> get primaryKey => {account, remoteId};
 }
 
+class LocalAttachments extends Table {
+  TextColumn get account => text()();
+  IntColumn get remoteId => integer()();
+  TextColumn get payload => text()();
+  BoolColumn get complete => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {account, remoteId};
+}
+
+class LocalAttachmentChunks extends Table {
+  TextColumn get account => text()();
+  IntColumn get attachmentId => integer()();
+  IntColumn get chunkIndex => integer()();
+  BlobColumn get contents => blob()();
+  @override
+  Set<Column> get primaryKey => {account, attachmentId, chunkIndex};
+}
+
 /// Replaces an account's authorized snapshot atomically. No authentication tokens.
 @DriftDatabase(
   tables: [
@@ -60,12 +78,14 @@ class LocalMembers extends Table {
     LocalDocuments,
     LocalAuditEvents,
     LocalMembers,
+    LocalAttachments,
+    LocalAttachmentChunks,
   ],
 )
 class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
   ArchiveLocalDatabase(super.executor);
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   Future<void> updateMetadata(
     String account,
@@ -116,6 +136,10 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
         await customStatement(
           'CREATE INDEX IF NOT EXISTS local_records_page_idx ON local_records (account, module, updated_at_millis, remote_id)',
         );
+      }
+      if (from < 3) {
+        await m.createTable(localAttachments);
+        await m.createTable(localAttachmentChunks);
       }
     },
   );
@@ -228,7 +252,7 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
   Future<void> replaceSnapshot(String account, String raw) => transaction(
     () async {
       final snapshot = jsonDecode(raw) as Map;
-      await removeSnapshot(account);
+      await removeSnapshot(account, includeAttachments: false);
       await into(localAccounts).insert(
         LocalAccountsCompanion.insert(
           account: account,
@@ -286,7 +310,18 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
       });
     },
   );
-  Future<void> removeSnapshot(String account) => transaction(() async {
+  Future<void> removeSnapshot(
+    String account, {
+    bool includeAttachments = true,
+  }) => transaction(() async {
+    if (includeAttachments) {
+      await (delete(
+        localAttachments,
+      )..where((t) => t.account.equals(account))).go();
+      await (delete(
+        localAttachmentChunks,
+      )..where((t) => t.account.equals(account))).go();
+    }
     await (delete(localRecords)..where((t) => t.account.equals(account))).go();
     await (delete(
       localDocuments,
@@ -296,5 +331,100 @@ class ArchiveLocalDatabase extends _$ArchiveLocalDatabase {
     )..where((t) => t.account.equals(account))).go();
     await (delete(localMembers)..where((t) => t.account.equals(account))).go();
     await (delete(localAccounts)..where((t) => t.account.equals(account))).go();
+  });
+  Future<List<Map<String, dynamic>>> readAttachments(String account) async =>
+      (await (select(
+            localAttachments,
+          )..where((t) => t.account.equals(account))).get())
+          .map(
+            (f) => {
+              ...Map<String, dynamic>.from(jsonDecode(f.payload) as Map),
+              'cached': f.complete,
+            },
+          )
+          .toList();
+
+  Future<void> syncAttachments(
+    String account,
+    List<Map<String, dynamic>> files,
+  ) => transaction(() async {
+    final ids = files.map((f) => f['id'] as int).toSet();
+    await (delete(
+      localAttachments,
+    )..where((t) => t.account.equals(account) & t.remoteId.isNotIn(ids))).go();
+    await (delete(localAttachmentChunks)..where(
+          (t) => t.account.equals(account) & t.attachmentId.isNotIn(ids),
+        ))
+        .go();
+    for (final file in files) {
+      final payload = Map<String, dynamic>.from(file)..remove('cached');
+      final entry = LocalAttachmentsCompanion.insert(
+        account: account,
+        remoteId: file['id'] as int,
+        payload: jsonEncode(payload),
+      );
+      await into(localAttachments).insert(
+        entry,
+        onConflict: DoUpdate(
+          (old) =>
+              LocalAttachmentsCompanion(payload: Value(jsonEncode(payload))),
+        ),
+      );
+    }
+  });
+  Future<void> putAttachmentChunk(
+    String account,
+    int id,
+    int index,
+    Uint8List bytes,
+  ) async {
+    await into(localAttachmentChunks).insertOnConflictUpdate(
+      LocalAttachmentChunksCompanion.insert(
+        account: account,
+        attachmentId: id,
+        chunkIndex: index,
+        contents: bytes,
+      ),
+    );
+  }
+
+  Future<Uint8List?> readAttachmentChunk(
+    String account,
+    int id,
+    int index,
+  ) async =>
+      (await (select(localAttachmentChunks)..where(
+                (t) =>
+                    t.account.equals(account) &
+                    t.attachmentId.equals(id) &
+                    t.chunkIndex.equals(index),
+              ))
+              .getSingleOrNull())
+          ?.contents;
+  Future<void> completeAttachment(
+    String account,
+    int id,
+  ) => transaction(() async {
+    final file =
+        await (select(localAttachments)..where(
+              (t) => t.account.equals(account) & t.remoteId.equals(id),
+            ))
+            .getSingle();
+    final meta = jsonDecode(file.payload) as Map;
+    final stats = await customSelect(
+      'SELECT COUNT(*) AS count, COALESCE(SUM(length(contents)), 0) AS size, COALESCE(MIN(chunk_index), 0) AS first, COALESCE(MAX(chunk_index), -1) AS last FROM local_attachment_chunks WHERE account = ? AND attachment_id = ?',
+      variables: [Variable(account), Variable(id)],
+    ).getSingle();
+    final count = stats.read<int>('count');
+    if (count != meta['chunkCount'] ||
+        stats.read<int>('size') != meta['byteLength'] ||
+        (count > 0 &&
+            (stats.read<int>('first') != 0 ||
+                stats.read<int>('last') != count - 1))) {
+      throw StateError('Файл збережено не повністю.');
+    }
+    await (update(localAttachments)
+          ..where((t) => t.account.equals(account) & t.remoteId.equals(id)))
+        .write(const LocalAttachmentsCompanion(complete: Value(true)));
   });
 }

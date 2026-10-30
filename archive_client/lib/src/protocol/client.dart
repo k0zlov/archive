@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+import 'dart:typed_data' as _idt;
 import 'package:archive_client/src/protocol/greetings/greeting.dart'
     as _ioqiwtc5;
 import 'package:http/http.dart' as _i85jenna;
@@ -223,6 +224,84 @@ class EndpointArchive extends _isc.EndpointRef {
 }
 
 /// {@category Endpoint}
+class EndpointAttachment extends _isc.EndpointRef {
+  EndpointAttachment(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'attachment';
+
+  _ida.Future<String> list(int afterId) => caller.callServerEndpoint<String>(
+    'attachment',
+    'list',
+    {'afterId': afterId},
+  );
+
+  _ida.Future<String> begin(
+    int recordId,
+    String fileName,
+    int byteLength,
+  ) => caller.callServerEndpoint<String>(
+    'attachment',
+    'begin',
+    {
+      'recordId': recordId,
+      'fileName': fileName,
+      'byteLength': byteLength,
+    },
+  );
+
+  _ida.Future<String> append(
+    int id,
+    int chunkIndex,
+    String content,
+  ) => caller.callServerEndpoint<String>(
+    'attachment',
+    'append',
+    {
+      'id': id,
+      'chunkIndex': chunkIndex,
+      'content': content,
+    },
+  );
+
+  _ida.Future<String> finish(int id) => caller.callServerEndpoint<String>(
+    'attachment',
+    'finish',
+    {'id': id},
+  );
+
+  _ida.Future<String> cancel(int id) => caller.callServerEndpoint<String>(
+    'attachment',
+    'cancel',
+    {'id': id},
+  );
+
+  _ida.Future<String> download(
+    int id,
+    int chunkIndex,
+  ) => caller.callServerEndpoint<String>(
+    'attachment',
+    'download',
+    {
+      'id': id,
+      'chunkIndex': chunkIndex,
+    },
+  );
+
+  _ida.Future<String> delete(int id) => caller.callServerEndpoint<String>(
+    'attachment',
+    'delete',
+    {'id': id},
+  );
+
+  _ida.Future<String> restore(int id) => caller.callServerEndpoint<String>(
+    'attachment',
+    'restore',
+    {'id': id},
+  );
+}
+
+/// {@category Endpoint}
 class EndpointAccount extends _isc.EndpointRef {
   EndpointAccount(_isc.EndpointCaller caller) : super(caller);
 
@@ -340,6 +419,33 @@ class EndpointGreeting extends _isc.EndpointRef {
       );
 }
 
+/// Keep these signatures backward-compatible: updates must work before login.
+/// {@category Endpoint}
+class EndpointUpdates extends _isc.EndpointRef {
+  EndpointUpdates(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'updates';
+
+  _ida.Future<String?> check() => caller.callServerEndpoint<String?>(
+    'updates',
+    'check',
+    {},
+  );
+
+  _ida.Future<_idt.ByteData> download(
+    String sha256,
+    int offset,
+  ) => caller.callServerEndpoint<_idt.ByteData>(
+    'updates',
+    'download',
+    {
+      'sha256': sha256,
+      'offset': offset,
+    },
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -379,14 +485,18 @@ class Client extends _isc.ServerpodClientShared {
          httpClientOverride: httpClientOverride,
        ) {
     archive = EndpointArchive(this);
+    attachment = EndpointAttachment(this);
     account = EndpointAccount(this);
     jwtRefresh = EndpointJwtRefresh(this);
     login = EndpointLogin(this);
     greeting = EndpointGreeting(this);
+    updates = EndpointUpdates(this);
     modules = Modules(this);
   }
 
   late final EndpointArchive archive;
+
+  late final EndpointAttachment attachment;
 
   late final EndpointAccount account;
 
@@ -396,15 +506,19 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointGreeting greeting;
 
+  late final EndpointUpdates updates;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'archive': archive,
+    'attachment': attachment,
     'account': account,
     'jwtRefresh': jwtRefresh,
     'login': login,
     'greeting': greeting,
+    'updates': updates,
   };
 
   @override

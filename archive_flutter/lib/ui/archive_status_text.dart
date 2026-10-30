@@ -1,3 +1,4 @@
+import 'theme.dart';
 import 'package:flutter/material.dart';
 import '../data/archive_activity.dart';
 
@@ -45,7 +46,10 @@ class ArchiveStatusText extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.right,
-        style: const TextStyle(fontSize: 11, color: Color(0xFF708073)),
+        style: TextStyle(
+          fontSize: 11,
+          color: context.archiveScheme.onSurfaceVariant,
+        ),
       );
     },
   );

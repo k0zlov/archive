@@ -19,6 +19,15 @@ archive:
   - deleteDocument:
   - restoreDocument:
   - auditEntries:
+attachment:
+  - list:
+  - begin:
+  - append:
+  - finish:
+  - cancel:
+  - download:
+  - delete:
+  - restore:
 account:
   - changePassword:
   - resetPassword:
@@ -29,3 +38,6 @@ login:
   - register:
 greeting:
   - hello:
+updates:
+  - check:
+  - download:

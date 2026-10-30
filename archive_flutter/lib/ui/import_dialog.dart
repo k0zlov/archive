@@ -302,11 +302,15 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
       '$label: $value',
       style: TextStyle(
         fontSize: 12,
-        color: bad ? const Color(0xFF9C392C) : archiveInk,
+        color: bad
+            ? context.archiveScheme.error
+            : context.archiveScheme.primary,
       ),
     ),
     side: BorderSide.none,
-    backgroundColor: bad ? const Color(0xFFFBE4DD) : const Color(0xFFE5EBE0),
+    backgroundColor: bad
+        ? context.archiveScheme.errorContainer
+        : context.archiveColors.subtleSurface,
   );
 
   @override
@@ -500,9 +504,9 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
                           for (final warning in p.warningCounts.entries.take(2))
                             Text(
                               '${warning.key} (${warning.value})',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black54,
+                                color: context.archiveScheme.onSurfaceVariant,
                               ),
                             ),
                         ],
@@ -512,8 +516,8 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
                               .map(
                                 (e) => Text(
                                   '${e.key} (${e.value})',
-                                  style: const TextStyle(
-                                    color: Color(0xFF9C392C),
+                                  style: TextStyle(
+                                    color: context.archiveScheme.error,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -521,16 +525,16 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
                         if (fileErrors > 0)
                           Text(
                             'Не вдалося прочитати файлів: $fileErrors. Приберіть їх зі списку або оберіть виправлені файли.',
-                            style: const TextStyle(
-                              color: Color(0xFF9C392C),
+                            style: TextStyle(
+                              color: context.archiveScheme.error,
                               fontSize: 12,
                             ),
                           ),
                         if (error != null)
                           Text(
                             error!,
-                            style: const TextStyle(
-                              color: Color(0xFF9C392C),
+                            style: TextStyle(
+                              color: context.archiveScheme.error,
                               fontSize: 12,
                             ),
                           ),
@@ -561,9 +565,8 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
                                     itemCount: files.length,
                                     itemBuilder: (context, i) => ListTile(
                                       selected: selectedFile == i,
-                                      selectedTileColor: const Color(
-                                        0xFFE5EBE0,
-                                      ),
+                                      selectedTileColor:
+                                          context.archiveColors.subtleSurface,
                                       title: Text(
                                         files[i].name,
                                         maxLines: 2,
@@ -732,18 +735,23 @@ class _ArchiveImportDialogState extends State<ArchiveImportDialog> {
                 child: IgnorePointer(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: archivePaper.withValues(alpha: .96),
+                      color: Theme.of(
+                        context,
+                      ).scaffoldBackgroundColor.withValues(alpha: .96),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: archiveInk, width: 3),
+                      border: Border.all(
+                        color: context.archiveScheme.primary,
+                        width: 3,
+                      ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.upload_file_outlined,
                             size: 64,
-                            color: archiveInk,
+                            color: context.archiveScheme.primary,
                           ),
                           SizedBox(height: 16),
                           Text(

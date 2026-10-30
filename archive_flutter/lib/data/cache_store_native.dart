@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'attachment_cache.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -62,6 +63,34 @@ Future<Object?> _databaseWork(_DatabaseWork work) async {
           work.record!['syncedAt'] as String,
         );
         return null;
+      case 'attachment-list':
+        return await database.readAttachments(work.account);
+      case 'attachment-sync':
+        await database.syncAttachments(
+          work.account,
+          List<Map<String, dynamic>>.from(work.record!['files'] as List),
+        );
+        return null;
+      case 'attachment-put':
+        await database.putAttachmentChunk(
+          work.account,
+          work.record!['id'] as int,
+          work.record!['index'] as int,
+          work.record!['bytes'] as Uint8List,
+        );
+        return null;
+      case 'attachment-get':
+        return await database.readAttachmentChunk(
+          work.account,
+          work.record!['id'] as int,
+          work.record!['index'] as int,
+        );
+      case 'attachment-complete':
+        await database.completeAttachment(
+          work.account,
+          work.record!['id'] as int,
+        );
+        return null;
       default:
         throw StateError('Unknown local database operation');
     }
@@ -75,7 +104,8 @@ class DriftCacheStore
         CacheStore,
         RecordPageStore,
         RecordPatchStore,
-        SnapshotMetadataStore {
+        SnapshotMetadataStore,
+        AttachmentCache {
   DriftCacheStore({Future<String> Function()? databasePath})
     : _path = (databasePath ?? _defaultPath)();
   final Future<String> _path;
@@ -109,7 +139,7 @@ class DriftCacheStore
   }
 
   Future<File> _legacy(String key) async => File(
-    '${(await getApplicationSupportDirectory()).path}/archive_cache/$key.json',
+    '${File(await _path).parent.path}/archive_cache/$key.json',
   );
   @override
   Future<void> write(String key, String value) async {
@@ -159,5 +189,56 @@ class DriftCacheStore
     await _run(key, 'remove');
     final old = await _legacy(key);
     if (await old.exists()) await old.delete();
+  }
+
+  Future<Object?> _attachmentWork(
+    String account,
+    String operation, [
+    Map<String, dynamic>? data,
+  ]) async => compute(
+    _databaseWork,
+    _DatabaseWork(await _path, account, operation, record: data),
+  );
+  @override
+  Future<List<Map<String, dynamic>>> readAttachments(String account) async =>
+      List<Map<String, dynamic>>.from(
+        await _attachmentWork(account, 'attachment-list') as List,
+      );
+  @override
+  Future<void> syncAttachments(
+    String account,
+    List<Map<String, dynamic>> files,
+  ) async {
+    await _attachmentWork(account, 'attachment-sync', {'files': files});
+  }
+
+  @override
+  Future<void> putAttachmentChunk(
+    String account,
+    int id,
+    int index,
+    Uint8List bytes,
+  ) async {
+    await _attachmentWork(account, 'attachment-put', {
+      'id': id,
+      'index': index,
+      'bytes': bytes,
+    });
+  }
+
+  @override
+  Future<Uint8List?> readAttachmentChunk(
+    String account,
+    int id,
+    int index,
+  ) async =>
+      await _attachmentWork(account, 'attachment-get', {
+            'id': id,
+            'index': index,
+          })
+          as Uint8List?;
+  @override
+  Future<void> completeAttachment(String account, int id) async {
+    await _attachmentWork(account, 'attachment-complete', {'id': id});
   }
 }

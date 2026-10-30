@@ -35,6 +35,9 @@ class TestClient extends Client {
     bool authenticated = true,
   }) async {
     if (offline) throw const ServerpodClientNetworkException('offline');
+    if (endpoint == 'attachment' && method == 'list') {
+      return jsonEncode({'ok': true, 'data': []}) as T;
+    }
     dynamic data;
     switch (method) {
       case 'profile':

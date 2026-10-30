@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/auth_gateway.dart';
 import 'theme.dart';
+import 'server_settings_dialog.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, this.gateway});
@@ -108,10 +109,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (constraints.maxWidth < 1000) ...[
-                          const Text(
+                          Text(
                             'Архів',
                             style: TextStyle(
-                              color: archiveInk,
+                              color: context.archiveScheme.primary,
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                             ),
@@ -127,9 +128,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         if (registering) ...[
                           const SizedBox(height: 14),
-                          const Text(
+                          Text(
                             'Доступ надає адміністратор.',
-                            style: TextStyle(color: Color(0xFF68786E)),
+                            style: TextStyle(
+                              color: context.archiveScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 30),
@@ -200,7 +203,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             padding: const EdgeInsets.only(bottom: 16),
                             child: Text(
                               error!,
-                              style: const TextStyle(color: Color(0xFFB34332)),
+                              style: TextStyle(
+                                color: context.archiveScheme.error,
+                              ),
                             ),
                           ),
                         FilledButton(
@@ -237,6 +242,14 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ? 'Повернутися до входу'
                                 : 'Створити обліковий запис',
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: busy
+                              ? null
+                              : () => showServerSettings(context),
+                          icon: const Icon(Icons.settings_outlined, size: 18),
+                          label: const Text('Налаштування'),
                         ),
                       ],
                     ),

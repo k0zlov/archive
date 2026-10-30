@@ -6,3 +6,6 @@ environment:
 resolution: workspace
 dev_dependencies:
   test: ^1.25.5
+dependencies:
+  crypto: ^3.0.7
+  cryptography: ^2.7.0

@@ -1595,6 +1595,656 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
   }
 }
 
+class $LocalAttachmentsTable extends LocalAttachments
+    with TableInfo<$LocalAttachmentsTable, LocalAttachment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalAttachmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountMeta = const VerificationMeta(
+    'account',
+  );
+  @override
+  late final GeneratedColumn<String> account = GeneratedColumn<String>(
+    'account',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<int> remoteId = GeneratedColumn<int>(
+    'remote_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completeMeta = const VerificationMeta(
+    'complete',
+  );
+  @override
+  late final GeneratedColumn<bool> complete = GeneratedColumn<bool>(
+    'complete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("complete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [account, remoteId, payload, complete];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_attachments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalAttachment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account')) {
+      context.handle(
+        _accountMeta,
+        account.isAcceptableOrUnknown(data['account']!, _accountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountMeta);
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_remoteIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('complete')) {
+      context.handle(
+        _completeMeta,
+        complete.isAcceptableOrUnknown(data['complete']!, _completeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {account, remoteId};
+  @override
+  LocalAttachment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalAttachment(
+      account: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account'],
+      )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      complete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}complete'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalAttachmentsTable createAlias(String alias) {
+    return $LocalAttachmentsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalAttachment extends DataClass implements Insertable<LocalAttachment> {
+  final String account;
+  final int remoteId;
+  final String payload;
+  final bool complete;
+  const LocalAttachment({
+    required this.account,
+    required this.remoteId,
+    required this.payload,
+    required this.complete,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account'] = Variable<String>(account);
+    map['remote_id'] = Variable<int>(remoteId);
+    map['payload'] = Variable<String>(payload);
+    map['complete'] = Variable<bool>(complete);
+    return map;
+  }
+
+  LocalAttachmentsCompanion toCompanion(bool nullToAbsent) {
+    return LocalAttachmentsCompanion(
+      account: Value(account),
+      remoteId: Value(remoteId),
+      payload: Value(payload),
+      complete: Value(complete),
+    );
+  }
+
+  factory LocalAttachment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalAttachment(
+      account: serializer.fromJson<String>(json['account']),
+      remoteId: serializer.fromJson<int>(json['remoteId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      complete: serializer.fromJson<bool>(json['complete']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'account': serializer.toJson<String>(account),
+      'remoteId': serializer.toJson<int>(remoteId),
+      'payload': serializer.toJson<String>(payload),
+      'complete': serializer.toJson<bool>(complete),
+    };
+  }
+
+  LocalAttachment copyWith({
+    String? account,
+    int? remoteId,
+    String? payload,
+    bool? complete,
+  }) => LocalAttachment(
+    account: account ?? this.account,
+    remoteId: remoteId ?? this.remoteId,
+    payload: payload ?? this.payload,
+    complete: complete ?? this.complete,
+  );
+  LocalAttachment copyWithCompanion(LocalAttachmentsCompanion data) {
+    return LocalAttachment(
+      account: data.account.present ? data.account.value : this.account,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      complete: data.complete.present ? data.complete.value : this.complete,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAttachment(')
+          ..write('account: $account, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('payload: $payload, ')
+          ..write('complete: $complete')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(account, remoteId, payload, complete);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalAttachment &&
+          other.account == this.account &&
+          other.remoteId == this.remoteId &&
+          other.payload == this.payload &&
+          other.complete == this.complete);
+}
+
+class LocalAttachmentsCompanion extends UpdateCompanion<LocalAttachment> {
+  final Value<String> account;
+  final Value<int> remoteId;
+  final Value<String> payload;
+  final Value<bool> complete;
+  final Value<int> rowid;
+  const LocalAttachmentsCompanion({
+    this.account = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.complete = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalAttachmentsCompanion.insert({
+    required String account,
+    required int remoteId,
+    required String payload,
+    this.complete = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : account = Value(account),
+       remoteId = Value(remoteId),
+       payload = Value(payload);
+  static Insertable<LocalAttachment> custom({
+    Expression<String>? account,
+    Expression<int>? remoteId,
+    Expression<String>? payload,
+    Expression<bool>? complete,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (account != null) 'account': account,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (payload != null) 'payload': payload,
+      if (complete != null) 'complete': complete,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalAttachmentsCompanion copyWith({
+    Value<String>? account,
+    Value<int>? remoteId,
+    Value<String>? payload,
+    Value<bool>? complete,
+    Value<int>? rowid,
+  }) {
+    return LocalAttachmentsCompanion(
+      account: account ?? this.account,
+      remoteId: remoteId ?? this.remoteId,
+      payload: payload ?? this.payload,
+      complete: complete ?? this.complete,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (account.present) {
+      map['account'] = Variable<String>(account.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<int>(remoteId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (complete.present) {
+      map['complete'] = Variable<bool>(complete.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAttachmentsCompanion(')
+          ..write('account: $account, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('payload: $payload, ')
+          ..write('complete: $complete, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalAttachmentChunksTable extends LocalAttachmentChunks
+    with TableInfo<$LocalAttachmentChunksTable, LocalAttachmentChunk> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalAttachmentChunksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountMeta = const VerificationMeta(
+    'account',
+  );
+  @override
+  late final GeneratedColumn<String> account = GeneratedColumn<String>(
+    'account',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attachmentIdMeta = const VerificationMeta(
+    'attachmentId',
+  );
+  @override
+  late final GeneratedColumn<int> attachmentId = GeneratedColumn<int>(
+    'attachment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chunkIndexMeta = const VerificationMeta(
+    'chunkIndex',
+  );
+  @override
+  late final GeneratedColumn<int> chunkIndex = GeneratedColumn<int>(
+    'chunk_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentsMeta = const VerificationMeta(
+    'contents',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> contents = GeneratedColumn<Uint8List>(
+    'contents',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    account,
+    attachmentId,
+    chunkIndex,
+    contents,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_attachment_chunks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalAttachmentChunk> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account')) {
+      context.handle(
+        _accountMeta,
+        account.isAcceptableOrUnknown(data['account']!, _accountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountMeta);
+    }
+    if (data.containsKey('attachment_id')) {
+      context.handle(
+        _attachmentIdMeta,
+        attachmentId.isAcceptableOrUnknown(
+          data['attachment_id']!,
+          _attachmentIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_attachmentIdMeta);
+    }
+    if (data.containsKey('chunk_index')) {
+      context.handle(
+        _chunkIndexMeta,
+        chunkIndex.isAcceptableOrUnknown(data['chunk_index']!, _chunkIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkIndexMeta);
+    }
+    if (data.containsKey('contents')) {
+      context.handle(
+        _contentsMeta,
+        contents.isAcceptableOrUnknown(data['contents']!, _contentsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {account, attachmentId, chunkIndex};
+  @override
+  LocalAttachmentChunk map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalAttachmentChunk(
+      account: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account'],
+      )!,
+      attachmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attachment_id'],
+      )!,
+      chunkIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chunk_index'],
+      )!,
+      contents: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}contents'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalAttachmentChunksTable createAlias(String alias) {
+    return $LocalAttachmentChunksTable(attachedDatabase, alias);
+  }
+}
+
+class LocalAttachmentChunk extends DataClass
+    implements Insertable<LocalAttachmentChunk> {
+  final String account;
+  final int attachmentId;
+  final int chunkIndex;
+  final Uint8List contents;
+  const LocalAttachmentChunk({
+    required this.account,
+    required this.attachmentId,
+    required this.chunkIndex,
+    required this.contents,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account'] = Variable<String>(account);
+    map['attachment_id'] = Variable<int>(attachmentId);
+    map['chunk_index'] = Variable<int>(chunkIndex);
+    map['contents'] = Variable<Uint8List>(contents);
+    return map;
+  }
+
+  LocalAttachmentChunksCompanion toCompanion(bool nullToAbsent) {
+    return LocalAttachmentChunksCompanion(
+      account: Value(account),
+      attachmentId: Value(attachmentId),
+      chunkIndex: Value(chunkIndex),
+      contents: Value(contents),
+    );
+  }
+
+  factory LocalAttachmentChunk.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalAttachmentChunk(
+      account: serializer.fromJson<String>(json['account']),
+      attachmentId: serializer.fromJson<int>(json['attachmentId']),
+      chunkIndex: serializer.fromJson<int>(json['chunkIndex']),
+      contents: serializer.fromJson<Uint8List>(json['contents']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'account': serializer.toJson<String>(account),
+      'attachmentId': serializer.toJson<int>(attachmentId),
+      'chunkIndex': serializer.toJson<int>(chunkIndex),
+      'contents': serializer.toJson<Uint8List>(contents),
+    };
+  }
+
+  LocalAttachmentChunk copyWith({
+    String? account,
+    int? attachmentId,
+    int? chunkIndex,
+    Uint8List? contents,
+  }) => LocalAttachmentChunk(
+    account: account ?? this.account,
+    attachmentId: attachmentId ?? this.attachmentId,
+    chunkIndex: chunkIndex ?? this.chunkIndex,
+    contents: contents ?? this.contents,
+  );
+  LocalAttachmentChunk copyWithCompanion(LocalAttachmentChunksCompanion data) {
+    return LocalAttachmentChunk(
+      account: data.account.present ? data.account.value : this.account,
+      attachmentId: data.attachmentId.present
+          ? data.attachmentId.value
+          : this.attachmentId,
+      chunkIndex: data.chunkIndex.present
+          ? data.chunkIndex.value
+          : this.chunkIndex,
+      contents: data.contents.present ? data.contents.value : this.contents,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAttachmentChunk(')
+          ..write('account: $account, ')
+          ..write('attachmentId: $attachmentId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('contents: $contents')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    account,
+    attachmentId,
+    chunkIndex,
+    $driftBlobEquality.hash(contents),
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalAttachmentChunk &&
+          other.account == this.account &&
+          other.attachmentId == this.attachmentId &&
+          other.chunkIndex == this.chunkIndex &&
+          $driftBlobEquality.equals(other.contents, this.contents));
+}
+
+class LocalAttachmentChunksCompanion
+    extends UpdateCompanion<LocalAttachmentChunk> {
+  final Value<String> account;
+  final Value<int> attachmentId;
+  final Value<int> chunkIndex;
+  final Value<Uint8List> contents;
+  final Value<int> rowid;
+  const LocalAttachmentChunksCompanion({
+    this.account = const Value.absent(),
+    this.attachmentId = const Value.absent(),
+    this.chunkIndex = const Value.absent(),
+    this.contents = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalAttachmentChunksCompanion.insert({
+    required String account,
+    required int attachmentId,
+    required int chunkIndex,
+    required Uint8List contents,
+    this.rowid = const Value.absent(),
+  }) : account = Value(account),
+       attachmentId = Value(attachmentId),
+       chunkIndex = Value(chunkIndex),
+       contents = Value(contents);
+  static Insertable<LocalAttachmentChunk> custom({
+    Expression<String>? account,
+    Expression<int>? attachmentId,
+    Expression<int>? chunkIndex,
+    Expression<Uint8List>? contents,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (account != null) 'account': account,
+      if (attachmentId != null) 'attachment_id': attachmentId,
+      if (chunkIndex != null) 'chunk_index': chunkIndex,
+      if (contents != null) 'contents': contents,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalAttachmentChunksCompanion copyWith({
+    Value<String>? account,
+    Value<int>? attachmentId,
+    Value<int>? chunkIndex,
+    Value<Uint8List>? contents,
+    Value<int>? rowid,
+  }) {
+    return LocalAttachmentChunksCompanion(
+      account: account ?? this.account,
+      attachmentId: attachmentId ?? this.attachmentId,
+      chunkIndex: chunkIndex ?? this.chunkIndex,
+      contents: contents ?? this.contents,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (account.present) {
+      map['account'] = Variable<String>(account.value);
+    }
+    if (attachmentId.present) {
+      map['attachment_id'] = Variable<int>(attachmentId.value);
+    }
+    if (chunkIndex.present) {
+      map['chunk_index'] = Variable<int>(chunkIndex.value);
+    }
+    if (contents.present) {
+      map['contents'] = Variable<Uint8List>(contents.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAttachmentChunksCompanion(')
+          ..write('account: $account, ')
+          ..write('attachmentId: $attachmentId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('contents: $contents, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$ArchiveLocalDatabase extends GeneratedDatabase {
   _$ArchiveLocalDatabase(QueryExecutor e) : super(e);
   $ArchiveLocalDatabaseManager get managers =>
@@ -1606,6 +2256,11 @@ abstract class _$ArchiveLocalDatabase extends GeneratedDatabase {
     this,
   );
   late final $LocalMembersTable localMembers = $LocalMembersTable(this);
+  late final $LocalAttachmentsTable localAttachments = $LocalAttachmentsTable(
+    this,
+  );
+  late final $LocalAttachmentChunksTable localAttachmentChunks =
+      $LocalAttachmentChunksTable(this);
   late final Index localRecordsPageIdx = Index(
     'local_records_page_idx',
     'CREATE INDEX local_records_page_idx ON local_records (account, module, updated_at_millis, remote_id)',
@@ -1620,6 +2275,8 @@ abstract class _$ArchiveLocalDatabase extends GeneratedDatabase {
     localDocuments,
     localAuditEvents,
     localMembers,
+    localAttachments,
+    localAttachmentChunks,
     localRecordsPageIdx,
   ];
 }
@@ -2577,6 +3234,401 @@ typedef $$LocalMembersTableProcessedTableManager =
       LocalMember,
       PrefetchHooks Function()
     >;
+typedef $$LocalAttachmentsTableCreateCompanionBuilder =
+    LocalAttachmentsCompanion Function({
+      required String account,
+      required int remoteId,
+      required String payload,
+      Value<bool> complete,
+      Value<int> rowid,
+    });
+typedef $$LocalAttachmentsTableUpdateCompanionBuilder =
+    LocalAttachmentsCompanion Function({
+      Value<String> account,
+      Value<int> remoteId,
+      Value<String> payload,
+      Value<bool> complete,
+      Value<int> rowid,
+    });
+
+class $$LocalAttachmentsTableFilterComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentsTable> {
+  $$LocalAttachmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get complete => $composableBuilder(
+    column: $table.complete,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalAttachmentsTableOrderingComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentsTable> {
+  $$LocalAttachmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get complete => $composableBuilder(
+    column: $table.complete,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalAttachmentsTableAnnotationComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentsTable> {
+  $$LocalAttachmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get account =>
+      $composableBuilder(column: $table.account, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<bool> get complete =>
+      $composableBuilder(column: $table.complete, builder: (column) => column);
+}
+
+class $$LocalAttachmentsTableTableManager
+    extends
+        RootTableManager<
+          _$ArchiveLocalDatabase,
+          $LocalAttachmentsTable,
+          LocalAttachment,
+          $$LocalAttachmentsTableFilterComposer,
+          $$LocalAttachmentsTableOrderingComposer,
+          $$LocalAttachmentsTableAnnotationComposer,
+          $$LocalAttachmentsTableCreateCompanionBuilder,
+          $$LocalAttachmentsTableUpdateCompanionBuilder,
+          (
+            LocalAttachment,
+            BaseReferences<
+              _$ArchiveLocalDatabase,
+              $LocalAttachmentsTable,
+              LocalAttachment
+            >,
+          ),
+          LocalAttachment,
+          PrefetchHooks Function()
+        > {
+  $$LocalAttachmentsTableTableManager(
+    _$ArchiveLocalDatabase db,
+    $LocalAttachmentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalAttachmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalAttachmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalAttachmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> account = const Value.absent(),
+                Value<int> remoteId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<bool> complete = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAttachmentsCompanion(
+                account: account,
+                remoteId: remoteId,
+                payload: payload,
+                complete: complete,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String account,
+                required int remoteId,
+                required String payload,
+                Value<bool> complete = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAttachmentsCompanion.insert(
+                account: account,
+                remoteId: remoteId,
+                payload: payload,
+                complete: complete,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalAttachmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$ArchiveLocalDatabase,
+      $LocalAttachmentsTable,
+      LocalAttachment,
+      $$LocalAttachmentsTableFilterComposer,
+      $$LocalAttachmentsTableOrderingComposer,
+      $$LocalAttachmentsTableAnnotationComposer,
+      $$LocalAttachmentsTableCreateCompanionBuilder,
+      $$LocalAttachmentsTableUpdateCompanionBuilder,
+      (
+        LocalAttachment,
+        BaseReferences<
+          _$ArchiveLocalDatabase,
+          $LocalAttachmentsTable,
+          LocalAttachment
+        >,
+      ),
+      LocalAttachment,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalAttachmentChunksTableCreateCompanionBuilder =
+    LocalAttachmentChunksCompanion Function({
+      required String account,
+      required int attachmentId,
+      required int chunkIndex,
+      required Uint8List contents,
+      Value<int> rowid,
+    });
+typedef $$LocalAttachmentChunksTableUpdateCompanionBuilder =
+    LocalAttachmentChunksCompanion Function({
+      Value<String> account,
+      Value<int> attachmentId,
+      Value<int> chunkIndex,
+      Value<Uint8List> contents,
+      Value<int> rowid,
+    });
+
+class $$LocalAttachmentChunksTableFilterComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentChunksTable> {
+  $$LocalAttachmentChunksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get contents => $composableBuilder(
+    column: $table.contents,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalAttachmentChunksTableOrderingComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentChunksTable> {
+  $$LocalAttachmentChunksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get contents => $composableBuilder(
+    column: $table.contents,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalAttachmentChunksTableAnnotationComposer
+    extends Composer<_$ArchiveLocalDatabase, $LocalAttachmentChunksTable> {
+  $$LocalAttachmentChunksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get account =>
+      $composableBuilder(column: $table.account, builder: (column) => column);
+
+  GeneratedColumn<int> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get contents =>
+      $composableBuilder(column: $table.contents, builder: (column) => column);
+}
+
+class $$LocalAttachmentChunksTableTableManager
+    extends
+        RootTableManager<
+          _$ArchiveLocalDatabase,
+          $LocalAttachmentChunksTable,
+          LocalAttachmentChunk,
+          $$LocalAttachmentChunksTableFilterComposer,
+          $$LocalAttachmentChunksTableOrderingComposer,
+          $$LocalAttachmentChunksTableAnnotationComposer,
+          $$LocalAttachmentChunksTableCreateCompanionBuilder,
+          $$LocalAttachmentChunksTableUpdateCompanionBuilder,
+          (
+            LocalAttachmentChunk,
+            BaseReferences<
+              _$ArchiveLocalDatabase,
+              $LocalAttachmentChunksTable,
+              LocalAttachmentChunk
+            >,
+          ),
+          LocalAttachmentChunk,
+          PrefetchHooks Function()
+        > {
+  $$LocalAttachmentChunksTableTableManager(
+    _$ArchiveLocalDatabase db,
+    $LocalAttachmentChunksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalAttachmentChunksTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalAttachmentChunksTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalAttachmentChunksTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> account = const Value.absent(),
+                Value<int> attachmentId = const Value.absent(),
+                Value<int> chunkIndex = const Value.absent(),
+                Value<Uint8List> contents = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAttachmentChunksCompanion(
+                account: account,
+                attachmentId: attachmentId,
+                chunkIndex: chunkIndex,
+                contents: contents,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String account,
+                required int attachmentId,
+                required int chunkIndex,
+                required Uint8List contents,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAttachmentChunksCompanion.insert(
+                account: account,
+                attachmentId: attachmentId,
+                chunkIndex: chunkIndex,
+                contents: contents,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalAttachmentChunksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$ArchiveLocalDatabase,
+      $LocalAttachmentChunksTable,
+      LocalAttachmentChunk,
+      $$LocalAttachmentChunksTableFilterComposer,
+      $$LocalAttachmentChunksTableOrderingComposer,
+      $$LocalAttachmentChunksTableAnnotationComposer,
+      $$LocalAttachmentChunksTableCreateCompanionBuilder,
+      $$LocalAttachmentChunksTableUpdateCompanionBuilder,
+      (
+        LocalAttachmentChunk,
+        BaseReferences<
+          _$ArchiveLocalDatabase,
+          $LocalAttachmentChunksTable,
+          LocalAttachmentChunk
+        >,
+      ),
+      LocalAttachmentChunk,
+      PrefetchHooks Function()
+    >;
 
 class $ArchiveLocalDatabaseManager {
   final _$ArchiveLocalDatabase _db;
@@ -2591,4 +3643,8 @@ class $ArchiveLocalDatabaseManager {
       $$LocalAuditEventsTableTableManager(_db, _db.localAuditEvents);
   $$LocalMembersTableTableManager get localMembers =>
       $$LocalMembersTableTableManager(_db, _db.localMembers);
+  $$LocalAttachmentsTableTableManager get localAttachments =>
+      $$LocalAttachmentsTableTableManager(_db, _db.localAttachments);
+  $$LocalAttachmentChunksTableTableManager get localAttachmentChunks =>
+      $$LocalAttachmentChunksTableTableManager(_db, _db.localAttachmentChunks);
 }

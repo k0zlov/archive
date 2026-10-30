@@ -23,3 +23,8 @@ pubspec_overrides.yaml
 
 .vscode/
 .vscode
+
+# Local release signing material and built installers
+.release-keys/
+/dist/
+/archive_server/updates/
