@@ -1,0 +1,19 @@
+### Immutable file content becomes visible only after the upload is complete.
+class: ArchiveAttachment
+serverOnly: true
+table: archive_attachment
+fields:
+  record: ArchiveRecord?, relation(onDelete=Cascade)
+  fileName: String
+  byteLength: int
+  uploadedBytes: int, default=0
+  chunkCount: int, default=0
+  status: String, default='uploading'
+  createdBy: String
+  createdAt: DateTime, default=now
+  deletedAt: DateTime?
+  deletedBy: String?
+indexes:
+  archive_attachment_record_idx:
+    fields: recordId, status, deletedAt
+

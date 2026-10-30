@@ -1,0 +1,13 @@
+### Bounded file parts allow large uploads without a single large RPC payload.
+class: ArchiveAttachmentChunk
+serverOnly: true
+table: archive_attachment_chunk
+fields:
+  attachment: ArchiveAttachment?, relation(onDelete=Cascade)
+  chunkIndex: int
+  content: ByteData
+indexes:
+  archive_attachment_chunk_idx:
+    fields: attachmentId, chunkIndex
+    unique: true
+
