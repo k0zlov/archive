@@ -7,6 +7,7 @@ import '../auth/archive_credentials.dart';
 import '../archive/archive_record_writer.dart';
 import '../generated/protocol.dart';
 import 'archive_events.dart';
+import '../updates/windows_client_policy.dart';
 
 Duration get archiveSessionLifetime =>
     AuthServices.getTokenManager<JwtTokenManager>()
@@ -168,7 +169,12 @@ class ArchiveSyncEndpoint extends Endpoint {
 
   /// Bidirectional websocket: small liveness frames, no repeated archive reads.
   /// The lease also expires after an unclean disconnect/server crash.
-  Stream<String> watch(Session session, Stream<int> heartbeat) {
+  Stream<String> watch(
+    Session session,
+    Stream<int> heartbeat, {
+    String? clientPlatform,
+    int? clientBuild,
+  }) {
     final output = StreamController<String>();
     StreamSubscription<int>? beats;
     StreamSubscription<ArchiveSignal>? events;
@@ -220,6 +226,15 @@ class ArchiveSyncEndpoint extends Endpoint {
     }
 
     queue(() async {
+      final required = await windowsClientPolicy.requiredUpdate(
+        clientPlatform ?? '',
+        clientBuild ?? 0,
+      );
+      if (required != null) {
+        send('update-required:$required');
+        unawaited(output.close());
+        return;
+      }
       var member = await _streamMember(session);
       await _validateStreamToken(session, member);
       await ArchivePresence.db.deleteWhere(
@@ -267,6 +282,15 @@ class ArchiveSyncEndpoint extends Endpoint {
             return;
           }
           lastHeartbeat = now;
+          final required = await windowsClientPolicy.requiredUpdate(
+            clientPlatform ?? '',
+            clientBuild ?? 0,
+          );
+          if (required != null) {
+            send('update-required:$required');
+            unawaited(output.close());
+            return;
+          }
           await _validateStreamToken(session, member);
           lease = await ArchivePresence.db.updateRow(
             session,

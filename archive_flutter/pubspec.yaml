@@ -24,6 +24,7 @@ environment:
 resolution: workspace
 
 dependencies:
+  http: ^1.6.0
   archive_shared:
     path: ../archive_shared
   archive: ^4.0.0

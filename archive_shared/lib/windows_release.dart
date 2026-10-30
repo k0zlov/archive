@@ -12,9 +12,10 @@ class WindowsRelease {
     required this.sha256,
     required this.size,
     this.notes = '',
+    this.minimumSupportedBuild = 1,
   });
   final String version, sha256, notes;
-  final int build, size;
+  final int build, size, minimumSupportedBuild;
   factory WindowsRelease.fromJson(Map<String, dynamic> json) {
     if (json['product'] != windowsUpdateProduct ||
         json['architecture'] != 'x64' ||
@@ -22,6 +23,11 @@ class WindowsRelease {
         !RegExp(r'^\d+\.\d+\.\d+$').hasMatch(json['version'] as String) ||
         json['build'] is! int ||
         (json['build'] as int) < 1 ||
+        (json['minimumSupportedBuild'] != null &&
+            (json['minimumSupportedBuild'] is! int ||
+                (json['minimumSupportedBuild'] as int) < 1 ||
+                (json['minimumSupportedBuild'] as int) >
+                    (json['build'] as int))) ||
         json['size'] is! int ||
         (json['size'] as int) < 1 ||
         json['sha256'] is! String ||
@@ -36,6 +42,7 @@ class WindowsRelease {
       size: json['size'] as int,
       sha256: json['sha256'] as String,
       notes: json['notes'] as String,
+      minimumSupportedBuild: json['minimumSupportedBuild'] as int? ?? 1,
     );
   }
   Map<String, dynamic> toJson() => {
@@ -46,6 +53,7 @@ class WindowsRelease {
     'sha256': sha256,
     'size': size,
     'notes': notes,
+    'minimumSupportedBuild': minimumSupportedBuild,
   };
 }
 

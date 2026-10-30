@@ -6,6 +6,11 @@ import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'data/app_settings_store.dart';
 import 'data/server_connection.dart';
+import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'data/updates/archive_api_client.dart';
+import 'data/updates/client_access.dart';
+import 'data/updates/policy_store.dart';
 
 final serverConnection = ServerConnection(
   store: appSettingsStore,
@@ -44,13 +49,37 @@ Future<ConnectedServer> _openServer(
       await legacy.set(null);
     }
   }
+  final target = kIsWeb ? 'web' : defaultTargetPlatform.name.toLowerCase();
+  var build = 0;
+  if (!kIsWeb) {
+    try {
+      build = int.tryParse((await PackageInfo.fromPlatform()).buildNumber) ?? 0;
+    } catch (_) {}
+  }
+  final access = ClientAccess(
+    platform: target,
+    build: build,
+    trustedKey: target == 'windows'
+        ? await rootBundle.loadString('assets/windows_update_public_key.txt')
+        : '',
+  );
+  if (target == 'windows') {
+    final policies = createUpdatePolicyStore();
+    final canonical = normalizeServerUrl(url);
+    access.remember = (raw) => policies.write(canonical, raw);
+    try {
+      final cached = await policies.read(canonical);
+      if (cached != null) await access.accept(cached, persist: false);
+    } catch (_) {}
+    access.checked = false;
+  }
   final monitor = FlutterConnectivityMonitor();
-  final transport = Client(url)
+  final transport = ArchiveApiClient(url, access)
     ..connectivityMonitor = monitor
     ..authSessionManager = FlutterAuthSessionManager(storage: storage);
   final server = _ConnectedServer(transport, monitor);
   try {
-    if (freshSession) {
+    if (freshSession || target == 'windows') {
       await transport.auth.restore();
     } else {
       await transport.auth.initialize();

@@ -6,6 +6,7 @@ import 'package:serverpod_auth_idp_server/providers/email.dart';
 
 import 'src/cache_busting.dart';
 import 'src/updates/github_release_sync.dart';
+import 'src/updates/windows_client_policy.dart';
 import 'src/generated/serverpod.dart';
 import 'src/web/routes/app_config_route.dart';
 
@@ -87,6 +88,8 @@ void run(List<String> args) async {
     ),
   );
 
+  // The update transport remains available when normal API calls need a newer client.
+  pod.server.addMiddleware(windowsClientPolicy.middleware);
   // Start the server.
   await pod.start();
   startWindowsGithubSync();

@@ -50,6 +50,9 @@ void main() {
         {'architecture': 'arm64'},
         {'version': '../1'},
         {'build': 0},
+        {'minimumSupportedBuild': 0},
+        {'minimumSupportedBuild': 3},
+        {'minimumSupportedBuild': '2'},
         {'size': -1},
         {'sha256': '../file'},
         {'notes': 'a' * 8001},
@@ -71,6 +74,35 @@ void main() {
           throwsFormatException,
         );
       }
+    },
+  );
+  test(
+    'old manifests remain compatible and the minimum is covered by the signature',
+    () async {
+      final legacy = release().toJson()..remove('minimumSupportedBuild');
+      expect(WindowsRelease.fromJson(legacy).minimumSupportedBuild, 1);
+      final mandatory = WindowsRelease(
+        version: '1.0.1',
+        build: 2,
+        minimumSupportedBuild: 2,
+        sha256: 'a' * 64,
+        size: 10,
+      );
+      final signed = await signWindowsRelease(mandatory, seed);
+      expect(
+        (await verifyWindowsRelease(signed, key)).minimumSupportedBuild,
+        2,
+      );
+      final envelope = jsonDecode(signed) as Map;
+      final payload =
+          jsonDecode(utf8.decode(base64Decode(envelope['payload'] as String)))
+              as Map;
+      payload['minimumSupportedBuild'] = 1;
+      envelope['payload'] = base64Encode(utf8.encode(jsonEncode(payload)));
+      await expectLater(
+        verifyWindowsRelease(jsonEncode(envelope), key),
+        throwsFormatException,
+      );
     },
   );
 }

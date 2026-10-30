@@ -43,16 +43,24 @@ void main() {
         ),
       );
       final output = '${root.path}/result.json';
-      Future<ProcessResult> run(String old, String version) => Process.run(
+      Future<ProcessResult> run(
+        String old,
+        String version, {
+        bool mandatory = false,
+      }) => Process.run(
         Platform.resolvedExecutable,
         ['--packages=$packages', script, root.path, output, old, version],
-        environment: {'GITHUB_RUN_NUMBER': '1'},
+        environment: {
+          'GITHUB_RUN_NUMBER': '1',
+          'ARCHIVE_MANDATORY_UPDATE': '$mandatory',
+        },
       );
       expect((await run(previous.path, '1.0.1')).exitCode, 0);
       expect(jsonDecode(await File(output).readAsString()), {
         'version': '1.0.1',
         'build': 9,
         'tag': 'windows-1.0.1-b9',
+        'minimumSupportedBuild': 1,
       });
       expect(await pubspec.readAsString(), contains('version: 1.0.1+9'));
       expect((await run('-', '-')).exitCode, 0);
@@ -70,6 +78,23 @@ void main() {
         (jsonDecode(await File(output).readAsString()) as Map)['version'],
         '1.0.1',
       );
+      final critical = WindowsRelease(
+        version: '1.0.1',
+        build: 12,
+        minimumSupportedBuild: 10,
+        sha256: 'a' * 64,
+        size: 10,
+      );
+      await previous.writeAsString(await signWindowsRelease(critical, seed));
+      expect((await run(previous.path, '-', mandatory: false)).exitCode, 0);
+      expect(
+        (jsonDecode(await File(output).readAsString())
+            as Map)['minimumSupportedBuild'],
+        10,
+      );
+      expect((await run(previous.path, '-', mandatory: true)).exitCode, 0);
+      final nextCritical = jsonDecode(await File(output).readAsString()) as Map;
+      expect(nextCritical['minimumSupportedBuild'], nextCritical['build']);
       expect((await run(previous.path, '0.9.0')).exitCode, isNot(0));
       expect((await run('-', r'$(bad)')).exitCode, isNot(0));
       await previous.writeAsString('{}');

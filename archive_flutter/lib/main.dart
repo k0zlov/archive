@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'data/cache_store.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'client.dart';
@@ -40,6 +43,18 @@ class MyApp extends StatelessWidget {
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: WindowsUpdateHost(
           controller: windowsUpdates,
+          offlineAvailable: () async {
+            final info = current.client.auth.authInfo;
+            if (info == null) return false;
+            final key = sha256
+                .convert(utf8.encode('${current.url}|${info.authUserId}'))
+                .toString();
+            try {
+              return await createCacheStore().read(key) != null;
+            } catch (_) {
+              return false;
+            }
+          },
           child: ValueListenableBuilder(
             valueListenable: current.client.auth.authInfoListenable,
             builder: (context, info, _) => info == null

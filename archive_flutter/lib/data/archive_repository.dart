@@ -9,6 +9,8 @@ import 'cache_store.dart';
 import 'record_page.dart';
 import 'archive_activity.dart';
 import 'attachment_repository.dart';
+import 'updates/archive_api_client.dart';
+import 'updates/client_access.dart';
 
 Map<String, dynamic> _decodeArchiveJson(String raw) =>
     jsonDecode(raw) as Map<String, dynamic>;
@@ -73,6 +75,9 @@ class ArchiveRepository {
     required String server,
     required String userId,
   }) : cacheKey = sha256.convert(utf8.encode('$server|$userId')).toString();
+  ClientAccess? get access =>
+      client is ArchiveApiClient ? (client as ArchiveApiClient).access : null;
+  bool get networkAllowed => access?.onlineAllowed ?? true;
   final Client client;
   final CacheStore store;
   final String cacheKey;
@@ -264,6 +269,11 @@ class ArchiveRepository {
   }
 
   Future<void> refresh() {
+    if (!networkAllowed) {
+      online = false;
+      notice = 'Локальна копія · для роботи із сервером перевірте оновлення.';
+      return Future.value();
+    }
     if (_refreshInFlight != null) return _refreshInFlight!;
     late final Future<void> work;
     work = _refresh().whenComplete(() {
@@ -867,7 +877,7 @@ class ArchiveRepository {
   }
 
   Future<void> restoreRecord(int id) async {
-    if (!online) {
+    if (!online || !networkAllowed) {
       throw const ArchiveFailure('Без зв’язку із сервером зміни недоступні.');
     }
     await request('restoreRecord', {'id': id});
@@ -887,7 +897,7 @@ class ArchiveRepository {
   }
 
   void _requireWrite(ArchiveModule module) {
-    if (!online) {
+    if (!online || !networkAllowed) {
       throw const ArchiveFailure('Без зв’язку із сервером зміни недоступні.');
     }
     if (!canWriteModule(profile, module)) {

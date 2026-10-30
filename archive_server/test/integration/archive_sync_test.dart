@@ -262,14 +262,14 @@ void main() {
         expect(await iterator.moveNext(), true);
         expect(iterator.current, 'ready');
         expect(await ArchivePresence.db.count(session), 1);
-        Future<int> connected() async =>
-            ((jsonDecode(await endpoints.archive.members(signed(admin)))['data']
-                        as List)
-                    .cast<Map>()
-                    .singleWhere(
-                      (m) => m['id'] == readerMember.id,
-                    )['activeSessions']
-                as int);
+        Future<int> connected() async {
+          final raw = await endpoints.archive.members(signed(admin));
+          final response = jsonDecode(raw) as Map;
+          final users = (response['data'] as List).cast<Map>();
+          final user = users.singleWhere((m) => m['id'] == readerMember.id);
+          return user['activeSessions'] as int;
+        }
+
         expect(await connected(), 1);
         // Two open sockets for the same user AND same auth token count twice.
         final secondInput = StreamController<int>();

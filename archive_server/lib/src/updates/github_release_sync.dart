@@ -188,7 +188,11 @@ class GithubReleaseSync {
     final key = await publicKey();
     final release = await verifyWindowsRelease(raw, key);
     final current = await _current(key);
-    if (current != null && current.build > release.build) return;
+    if (current != null &&
+        (current.build > release.build ||
+            current.minimumSupportedBuild > release.minimumSupportedBuild)) {
+      return;
+    }
     if (current != null &&
         current.build == release.build &&
         current.sha256 != release.sha256) {
@@ -242,7 +246,11 @@ class GithubReleaseSync {
       if (_stopped) return;
       // A manual publication may have happened while the network request ran.
       final newest = await _current(key);
-      if (newest != null && newest.build > release.build) return;
+      if (newest != null &&
+          (newest.build > release.build ||
+              newest.minimumSupportedBuild > release.minimumSupportedBuild)) {
+        return;
+      }
       if (newest != null &&
           newest.build == release.build &&
           newest.sha256 != release.sha256) {

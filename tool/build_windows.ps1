@@ -2,6 +2,7 @@ param(
   [string]$SigningKey = "$PSScriptRoot\..\.release-keys\windows-update.key",
   [string]$NotesFile = '',
   [string]$Iscc = '',
+  [int]$MinimumSupportedBuild = 1,
   [switch]$InstallerOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -65,7 +66,8 @@ if ($InstallerOnly) {
 Push-Location "$root\archive_shared"
 try {
   $releaseArgs = @('run', 'tool/windows_release.dart', 'publish', $installer, $version, $build, $SigningKey, "$output\server")
-  if ($NotesFile) { $releaseArgs += $NotesFile }
+  $notesArgument = if ($NotesFile) { $NotesFile } else { '-' }
+  $releaseArgs += @($notesArgument, [string]$MinimumSupportedBuild)
   & dart @releaseArgs
   if ($LASTEXITCODE -ne 0) { throw 'Release signing failed.' }
 } finally { Pop-Location }

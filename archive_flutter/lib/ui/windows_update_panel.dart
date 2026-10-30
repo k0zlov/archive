@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'windows_update_controller.dart';
 import 'theme.dart';
+import 'server_settings_dialog.dart';
 
 class WindowsUpdatePanel extends StatelessWidget {
   const WindowsUpdatePanel({super.key, required this.controller});
@@ -114,9 +115,15 @@ Future<void> showWindowsUpdateDialog(
 );
 
 class WindowsUpdateHost extends StatelessWidget {
-  const WindowsUpdateHost({super.key, required this.child, this.controller});
+  const WindowsUpdateHost({
+    super.key,
+    required this.child,
+    this.controller,
+    this.offlineAvailable,
+  });
   final Widget child;
   final WindowsUpdateController? controller;
+  final Future<bool> Function()? offlineAvailable;
   @override
   Widget build(BuildContext context) {
     final c = controller;
@@ -124,40 +131,137 @@ class WindowsUpdateHost extends StatelessWidget {
     return ListenableBuilder(
       listenable: c,
       child: child,
-      builder: (context, child) => Column(
-        children: [
-          if (c.release != null)
-            Material(
-              color: context.archiveColors.subtleSurface,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 6,
-                  ),
-                  child: Row(
+      builder: (context, child) {
+        final access = c.access;
+        if (!access.checked) {
+          return const Scaffold(
+            body: Center(child: Text('Перевірка сумісності із сервером…')),
+          );
+        }
+        if (access.requiredUpdate && !access.offlineChosen) {
+          return Scaffold(
+            body: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(28),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 540),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Text(
-                          'Доступне оновлення ${c.release!.version}',
-                          style: TextStyle(
-                            color: context.archiveScheme.onSurface,
-                          ),
-                        ),
+                      Text(
+                        'Потрібне оновлення',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Ця версія більше не підтримує роботу із сервером. Оновіть застосунок або переглядайте локальну копію без змін.',
+                      ),
+                      const SizedBox(height: 24),
+                      WindowsUpdatePanel(controller: c),
+                      const SizedBox(height: 24),
+                      OutlinedButton(
+                        onPressed: c.installing
+                            ? null
+                            : () async {
+                                final available =
+                                    await offlineAvailable?.call() ?? true;
+                                if (!context.mounted) return;
+                                if (available) {
+                                  access.chooseOffline();
+                                } else {
+                                  showArchiveMessage(
+                                    context,
+                                    'Локальної копії немає. Спочатку оновіть застосунок і підключіться до сервера.',
+                                  );
+                                }
+                              },
+                        child: const Text('Працювати офлайн'),
                       ),
                       TextButton(
-                        onPressed: () => showWindowsUpdateDialog(context, c),
-                        child: const Text('Переглянути'),
+                        onPressed: c.installing
+                            ? null
+                            : () => showServerSettings(context),
+                        child: const Text('Налаштування'),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-          Expanded(child: child!),
-        ],
-      ),
+          );
+        }
+        return Column(
+          children: [
+            if (access.requiredUpdate || access.unavailable)
+              Material(
+                color: context.archiveColors.subtleSurface,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            access.requiredUpdate
+                                ? 'Офлайн · потрібне оновлення для роботи із сервером'
+                                : 'Офлайн · не вдалося перевірити зв’язок із сервером',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: access.requiredUpdate
+                              ? access.showChoice
+                              : c.busy
+                              ? null
+                              : c.check,
+                          child: Text(
+                            access.requiredUpdate ? 'Оновити' : 'Повторити',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (c.release != null &&
+                !access.requiredUpdate &&
+                !access.unavailable)
+              Material(
+                color: context.archiveColors.subtleSurface,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Доступне оновлення ${c.release!.version}',
+                            style: TextStyle(
+                              color: context.archiveScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => showWindowsUpdateDialog(context, c),
+                          child: const Text('Переглянути'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(child: child!),
+          ],
+        );
+      },
     );
   }
 }

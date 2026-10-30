@@ -477,13 +477,19 @@ class EndpointArchiveSync extends _isc.EndpointRef {
 
   /// Bidirectional websocket: small liveness frames, no repeated archive reads.
   /// The lease also expires after an unclean disconnect/server crash.
-  _ida.Stream<String> watch(_ida.Stream<int> heartbeat) =>
-      caller.callStreamingServerEndpoint<_ida.Stream<String>, String>(
-        'archiveSync',
-        'watch',
-        {},
-        {'heartbeat': heartbeat},
-      );
+  _ida.Stream<String> watch(
+    _ida.Stream<int> heartbeat, {
+    String? clientPlatform,
+    int? clientBuild,
+  }) => caller.callStreamingServerEndpoint<_ida.Stream<String>, String>(
+    'archiveSync',
+    'watch',
+    {
+      'clientPlatform': clientPlatform,
+      'clientBuild': clientBuild,
+    },
+    {'heartbeat': heartbeat},
+  );
 }
 
 /// Keep these signatures backward-compatible: updates must work before login.

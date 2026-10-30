@@ -37,10 +37,10 @@ Future<void> main(List<String> args) async {
       );
       return;
     }
-    // publish <installer> <version> <build> <private-key> <output-dir> [release-notes-file]
-    if (args.length < 6 || args.length > 7 || args.first != 'publish') {
+    // publish <installer> <version> <build> <private-key> <output-dir> [notes-file|-] [minimum-supported-build]
+    if (args.length < 6 || args.length > 8 || args.first != 'publish') {
       throw ArgumentError(
-        'keygen <private-key> <public-key> OR publish <installer> <version> <build> <private-key> <output-dir> [notes-file]',
+        'keygen <private-key> <public-key> OR publish <installer> <version> <build> <private-key> <output-dir> [notes-file] [minimum-supported-build]',
       );
     }
     final installer = File(args[1]);
@@ -65,7 +65,10 @@ Future<void> main(List<String> args) async {
       build: int.parse(args[3]),
       sha256: digest,
       size: await installer.length(),
-      notes: args.length == 7 ? await File(args[6]).readAsString() : '',
+      notes: args.length >= 7 && args[6].isNotEmpty && args[6] != '-'
+          ? await File(args[6]).readAsString()
+          : '',
+      minimumSupportedBuild: args.length == 8 ? int.parse(args[7]) : 1,
     );
     final seed = base64Decode((await File(args[4]).readAsString()).trim());
     final envelope = await signWindowsRelease(release, seed);
@@ -89,6 +92,9 @@ Future<void> main(List<String> args) async {
       final previous = decodeWindowsRelease(
         await existingManifest.readAsString(),
       );
+      if (release.minimumSupportedBuild < previous.minimumSupportedBuild) {
+        throw StateError('Minimum supported build cannot decrease.');
+      }
       if (release.build < previous.build ||
           (release.build == previous.build &&
               release.sha256 != previous.sha256)) {

@@ -1583,8 +1583,10 @@ class _ArchiveSyncEndpoint {
 
   _ida.Stream<String> watch(
     _ist.TestSessionBuilder sessionBuilder,
-    _ida.Stream<int> heartbeat,
-  ) {
+    _ida.Stream<int> heartbeat, {
+    String? clientPlatform,
+    int? clientBuild,
+  }) {
     var _localTestStreamManager = _ist.TestStreamManager<String>();
     _ist.callStreamFunctionAndHandleExceptions(
       () async {
@@ -1598,7 +1600,10 @@ class _ArchiveSyncEndpoint {
               createSessionCallback: (_) => _localUniqueSession,
               endpointPath: 'archiveSync',
               methodName: 'watch',
-              arguments: {},
+              arguments: {
+                'clientPlatform': clientPlatform,
+                'clientBuild': clientBuild,
+              },
               requestedInputStreams: ['heartbeat'],
               serializationManager: _serializationManager,
             );

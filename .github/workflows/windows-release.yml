@@ -6,6 +6,11 @@ on:
         description: 'Версія (необов’язково, наприклад 1.0.1)'
         required: false
         type: string
+      mandatory:
+        description: 'Обов’язкове оновлення для роботи із сервером'
+        required: false
+        default: false
+        type: boolean
       notes:
         description: 'Що змінилося'
         required: false
@@ -39,6 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
+          ARCHIVE_MANDATORY_UPDATE: ${{ inputs.mandatory }}
         run: |
           $previous = '-'
           try {
@@ -64,6 +70,7 @@ jobs:
           "version=$($release.version)" >> $env:GITHUB_OUTPUT
           "build=$($release.build)" >> $env:GITHUB_OUTPUT
           "tag=$($release.tag)" >> $env:GITHUB_OUTPUT
+          "minimum=$($release.minimumSupportedBuild)" >> $env:GITHUB_OUTPUT
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Build and sign installer
@@ -71,6 +78,7 @@ jobs:
         env:
           ARCHIVE_UPDATE_PRIVATE_KEY: ${{ secrets.ARCHIVE_UPDATE_PRIVATE_KEY }}
           RELEASE_NOTES: ${{ inputs.notes }}
+          MINIMUM_SUPPORTED_BUILD: ${{ steps.release.outputs.minimum }}
         run: |
           if (-not $env:ARCHIVE_UPDATE_PRIVATE_KEY) { throw 'Add ARCHIVE_UPDATE_PRIVATE_KEY in repository Actions secrets once.' }
           $key = Join-Path $env:RUNNER_TEMP 'archive-update.key'
@@ -79,7 +87,7 @@ jobs:
           [System.IO.File]::WriteAllText($notes, $text)
           try {
             [System.IO.File]::WriteAllText($key, $env:ARCHIVE_UPDATE_PRIVATE_KEY.Trim())
-            ./tool/build_windows.ps1 -SigningKey $key -NotesFile $notes
+            ./tool/build_windows.ps1 -SigningKey $key -NotesFile $notes -MinimumSupportedBuild ([int]$env:MINIMUM_SUPPORTED_BUILD)
           } finally { Remove-Item $key -ErrorAction SilentlyContinue }
       - name: Publish completed release
         shell: pwsh

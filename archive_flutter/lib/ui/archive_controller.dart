@@ -9,12 +9,36 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 class ArchiveController extends ChangeNotifier {
   ArchiveController(this.repository) {
+    repository.access?.addListener(_accessChanged);
+    _networkBlocked = !repository.networkAllowed;
     unawaited(loadPage());
   }
   final ArchiveRepository repository;
   Timer? _timer;
   Timer? _eventDebounce;
   bool _refreshPending = false;
+  bool _networkBlocked = false, _initialized = false;
+
+  void _accessChanged() {
+    if (_disposed) return;
+    final blocked = !repository.networkAllowed;
+    if (blocked == _networkBlocked) return;
+    _networkBlocked = blocked;
+    if (blocked) {
+      _timer?.cancel();
+      _eventDebounce?.cancel();
+      _live.stop();
+      repository.online = false;
+      repository.notice =
+          'Локальна копія · для роботи із сервером потрібне оновлення.';
+      if (_initialized) unawaited(repository.prepareForUpdate());
+      _notify();
+    } else if (_initialized && !_paused) {
+      unawaited(refresh());
+      _startSynchronization();
+    }
+  }
+
   Future<void>? _membersRefresh;
   String? _watchSession;
   String? get _currentSession => repository.client.auth.authInfo?.refreshToken
@@ -34,6 +58,13 @@ class ArchiveController extends ChangeNotifier {
     },
     onData: _scheduleRefresh,
     onPresenceSnapshot: repository.applyMemberPresence,
+    onUpdateRequired: (raw) async {
+      try {
+        await repository.access?.accept(raw);
+      } catch (_) {
+        repository.access?.checkFailed();
+      }
+    },
     onAlive: () {
       if (!repository.online) _scheduleRefresh();
     },
@@ -68,7 +99,7 @@ class ArchiveController extends ChangeNotifier {
   );
 
   void _scheduleRefresh() {
-    if (_disposed || _paused) return;
+    if (_disposed || _paused || _networkBlocked) return;
     _eventDebounce?.cancel();
     _eventDebounce = Timer(const Duration(milliseconds: 150), () {
       if (loading) {
@@ -80,6 +111,7 @@ class ArchiveController extends ChangeNotifier {
   }
 
   void _startSynchronization() {
+    if (_networkBlocked || _disposed || _paused) return;
     _live.start();
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 5), (_) => refresh());
@@ -160,6 +192,7 @@ class ArchiveController extends ChangeNotifier {
   Future<void> initialize() async {
     await repository.restore();
     if (_disposed || _paused) return;
+    _initialized = true;
     await loadPage();
     await refresh();
     if (!_disposed && !_paused) {
@@ -168,7 +201,7 @@ class ArchiveController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (loading || _disposed || _paused) return;
+    if (loading || _disposed || _paused || _networkBlocked) return;
     loading = true;
     _notify();
     try {
@@ -250,6 +283,7 @@ class ArchiveController extends ChangeNotifier {
     _eventDebounce?.cancel();
     _live.stop();
     _searchTimer?.cancel();
+    repository.access?.removeListener(_accessChanged);
     repository.dispose();
     super.dispose();
   }

@@ -993,7 +993,18 @@ class Endpoints extends _is.EndpointDispatch {
         ),
         'watch': _is.MethodStreamConnector(
           name: 'watch',
-          params: {},
+          params: {
+            'clientPlatform': _is.ParameterDescription(
+              name: 'clientPlatform',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+            'clientBuild': _is.ParameterDescription(
+              name: 'clientBuild',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
           streamParams: {
             'heartbeat': _is.StreamParameterDescription<int>(
               name: 'heartbeat',
@@ -1010,6 +1021,8 @@ class Endpoints extends _is.EndpointDispatch {
                   .watch(
                     session,
                     streamParams['heartbeat']!.cast<int>(),
+                    clientPlatform: params['clientPlatform'],
+                    clientBuild: params['clientBuild'],
                   ),
         ),
       },

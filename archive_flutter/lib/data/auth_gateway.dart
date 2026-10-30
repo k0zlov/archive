@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:archive_client/archive_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import '../client.dart';
+import 'updates/client_access.dart';
 
 final _authenticationOperations = <Future<void>>{};
 
@@ -55,6 +56,8 @@ class ServerpodAuthGateway implements AuthGateway {
       client.account.resetPassword(memberId);
 }
 
-String authErrorMessage(Object error) => error is ArchiveAuthException
+String authErrorMessage(Object error) => error is ClientOfflineException
+    ? error.toString()
+    : error is ArchiveAuthException
     ? error.message
     : 'Не вдалося з’єднатися із сервером. Спробуйте ще раз.';

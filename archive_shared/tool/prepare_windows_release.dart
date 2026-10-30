@@ -77,6 +77,10 @@ Future<void> main(List<String> args) async {
       'version': version,
       'build': build,
       'tag': 'windows-$version-b$build',
+      'minimumSupportedBuild':
+          Platform.environment['ARCHIVE_MANDATORY_UPDATE'] == 'true'
+          ? build
+          : previous?.minimumSupportedBuild ?? 1,
     }),
   );
 }

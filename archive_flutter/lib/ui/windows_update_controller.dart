@@ -3,6 +3,7 @@ import 'package:archive_shared/windows_release.dart';
 import 'package:flutter/foundation.dart';
 import '../data/updates/update_platform.dart';
 import '../data/updates/update_source.dart';
+import '../data/updates/client_access.dart';
 
 class WindowsUpdateController extends ChangeNotifier {
   WindowsUpdateController({
@@ -11,7 +12,17 @@ class WindowsUpdateController extends ChangeNotifier {
     required this.trustedKey,
     required this.source,
     required this.platform,
-  });
+    ClientAccess? access,
+  }) : access =
+           access ??
+           ClientAccess(
+             platform: 'windows',
+             build: build,
+             trustedKey: trustedKey,
+           ) {
+    this.access.addListener(_accessChanged);
+  }
+  ClientAccess access;
   final String version, trustedKey;
   final int build;
   UpdateSource source;
@@ -30,6 +41,23 @@ class WindowsUpdateController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void _accessChanged() {
+    final next = access.policy;
+    if (!checking &&
+        next != null &&
+        next.build > build &&
+        next.sha256 != release?.sha256) {
+      if (downloading) cancelDownload();
+      final old = prepared;
+      prepared = null;
+      if (old != null) {
+        unawaited(platform.discard(old).catchError((Object _) {}));
+      }
+      release = next;
+    }
+    _notify();
+  }
+
   VoidCallback registerPreparation(
     Future<void> Function() prepare,
     void Function() resume,
@@ -44,7 +72,12 @@ class WindowsUpdateController extends ChangeNotifier {
     };
   }
 
-  void reset(UpdateSource next) {
+  void reset(UpdateSource next, {ClientAccess? nextAccess}) {
+    access.removeListener(_accessChanged);
+    access =
+        nextAccess ??
+        ClientAccess(platform: 'windows', build: build, trustedKey: trustedKey);
+    access.addListener(_accessChanged);
     _epoch++;
     source = next;
     final old = prepared;
@@ -66,9 +99,13 @@ class WindowsUpdateController extends ChangeNotifier {
     _notify();
     try {
       final raw = await current.check().timeout(const Duration(seconds: 8));
-      final next = raw == null
-          ? null
-          : await verifyWindowsRelease(raw, trustedKey);
+      if (epoch != _epoch || _disposed) return;
+      if (raw != null) {
+        await access.accept(raw);
+      } else {
+        access.checkCompleted();
+      }
+      final next = access.policy;
       if (epoch != _epoch || _disposed) return;
       checked = true;
       final available = next != null && next.build > build ? next : null;
@@ -81,6 +118,7 @@ class WindowsUpdateController extends ChangeNotifier {
       release = available;
     } catch (e) {
       if (epoch == _epoch && !_disposed) {
+        access.checkFailed();
         error = e is FormatException
             ? e.message
             : 'Не вдалося перевірити оновлення. Спробуйте пізніше.';
@@ -175,6 +213,7 @@ class WindowsUpdateController extends ChangeNotifier {
     _epoch++;
     final old = prepared;
     if (old != null) unawaited(platform.discard(old).catchError((Object _) {}));
+    access.removeListener(_accessChanged);
     super.dispose();
   }
 }

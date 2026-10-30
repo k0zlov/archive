@@ -6,6 +6,7 @@ import 'package:archive_client/archive_client.dart';
 import 'package:archive_flutter/data/updates/update_platform.dart';
 import 'package:archive_flutter/data/updates/update_platform_native.dart';
 import 'package:archive_flutter/data/updates/update_source.dart';
+import 'package:archive_flutter/data/updates/client_access.dart';
 import 'package:archive_flutter/ui/windows_update_controller.dart';
 import 'package:archive_flutter/ui/windows_update_panel.dart';
 import 'package:archive_flutter/ui/server_settings_dialog.dart';
@@ -147,8 +148,9 @@ void main() {
         seed,
       );
       await c.check();
-      expect(c.release, isNull);
-      expect(c.prepared, isNull);
+      // A signed older manifest cannot roll back the verified update policy.
+      expect(c.release?.build, 2);
+      expect(c.prepared, isNotNull);
     },
   );
   test(
@@ -286,6 +288,58 @@ void main() {
   });
 
   for (final brightness in Brightness.values) {
+    for (final hasCache in [true, false]) {
+      testWidgets('$brightness mandatory update with cache=$hasCache', (
+        tester,
+      ) async {
+        source.envelope = await signWindowsRelease(
+          WindowsRelease(
+            version: '1.0.1',
+            build: 2,
+            minimumSupportedBuild: 2,
+            sha256: release.sha256,
+            size: release.size,
+          ),
+          seed,
+        );
+        final c = controller();
+        addTearDown(c.dispose);
+        await c.check();
+        expect(c.access.requiredUpdate, isTrue);
+        expect(c.access.ensureOnline, throwsA(isA<ClientOfflineException>()));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: archiveTheme(brightness: brightness),
+            home: WindowsUpdateHost(
+              controller: c,
+              offlineAvailable: () async => hasCache,
+              child: const Scaffold(body: Text('Локальні справи')),
+            ),
+          ),
+        );
+        expect(find.text('Потрібне оновлення'), findsOneWidget);
+        expect(find.text('Локальні справи'), findsNothing);
+        await tester.tap(find.text('Працювати офлайн'));
+        await tester.pumpAndSettle();
+        if (hasCache) {
+          expect(find.text('Локальні справи'), findsOneWidget);
+          expect(c.access.onlineAllowed, isFalse);
+          await tester.tap(find.text('Оновити'));
+          await tester.pumpAndSettle();
+          expect(find.text('Потрібне оновлення'), findsOneWidget);
+        } else {
+          expect(find.text('Локальні справи'), findsNothing);
+          expect(find.textContaining('Локальної копії немає'), findsOneWidget);
+        }
+        await tester.tap(find.text('Завантажити'));
+        await tester.pumpAndSettle();
+        expect(platform.installed, 0);
+        await tester.tap(find.text('Встановити й перезапустити'));
+        await tester.pumpAndSettle();
+        expect(platform.installed, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
     testWidgets(
       '$brightness Windows update banner and settings use explicit user actions',
       (tester) async {

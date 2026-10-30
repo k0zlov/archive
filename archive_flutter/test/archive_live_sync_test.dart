@@ -9,7 +9,9 @@ void main() {
       final outputs = <StreamController<String>>[];
       var data = 0, presence = 0, disconnected = 0, beats = 0;
       Map<String, dynamic>? snapshot;
-      final live = ArchiveLiveSync(
+      String? requiredUpdate;
+      late final ArchiveLiveSync live;
+      live = ArchiveLiveSync(
         watch: (input) {
           input.listen((_) => beats++);
           final output = StreamController<String>();
@@ -17,6 +19,10 @@ void main() {
           return output.stream;
         },
         onPresenceSnapshot: (value) => snapshot = value,
+        onUpdateRequired: (raw) async {
+          requiredUpdate = raw;
+          live.stop();
+        },
         onData: () => data++,
         onPresence: () => presence++,
         onDisconnected: () => disconnected++,
@@ -48,7 +54,9 @@ void main() {
       outputs.last.add('ready');
       await tester.pump();
       expect(data, 3);
-      live.stop();
+      outputs.last.add('update-required:signed-envelope');
+      await tester.pump();
+      expect(requiredUpdate, 'signed-envelope');
       await tester.pump(const Duration(minutes: 10));
       expect(outputs, hasLength(2));
       expect(beats, 1);
