@@ -6,6 +6,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'windows_runtime.ps1')
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) { throw 'Build on Windows.' }
 $pubspec = Get-Content "$root\archive_flutter\pubspec.yaml" -Raw
@@ -45,11 +46,12 @@ $bundle = "$root\archive_flutter\build\windows\x64\runner\Release"
 if (-not (Test-Path "$bundle\archive_flutter.exe")) { throw 'Windows x64 build output missing.' }
 # Bundle the redistributable runtime app-locally, including for fresh PCs.
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-$vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-$redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Sort-Object { [version]$_.Name } | Select-Object -Last 1
-$crt = Get-ChildItem "$($redist.FullName)\x64\Microsoft.VC*.CRT" -Directory | Select-Object -First 1
-if (-not $crt) { throw 'Visual C++ redistributable DLLs are missing.' }
-Copy-Item "$($crt.FullName)\*.dll" $bundle -Force
+$installations = @(& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+if ($LASTEXITCODE -ne 0 -or $installations.Count -ne 1) { throw 'Visual Studio C++ toolchain was not found.' }
+$vs = $installations[0].Trim()
+$crt = Find-VisualCppRuntime -RedistRoot (Join-Path $vs 'VC\Redist\MSVC')
+Write-Host "Visual C++ runtime: $crt"
+Copy-Item (Join-Path $crt '*.dll') $bundle -Force
 $output = "$root\dist\windows"
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 & $Iscc "/DAppVersion=$version" "/DAppBuild=$build" "/DSourceDir=$bundle" "/DOutputDir=$output" "$root\installer\windows\archive.iss"

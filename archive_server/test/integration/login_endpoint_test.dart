@@ -1,18 +1,33 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
 import 'package:archive_server/src/generated/protocol.dart';
 import 'package:test/test.dart';
 import 'test_tools/serverpod_test_tools.dart';
 
+String _testSecret() {
+  final random = Random.secure();
+  return base64UrlEncode(List.generate(64, (_) => random.nextInt(256)));
+}
+
 void main() {
   withServerpod('Username authentication', (sessions, endpoints) {
     final session = sessions.build();
     setUpAll(() {
+      // This group owns a disposable database. Its keys must be disposable too,
+      // so a clean CI checkout never needs a developer's passwords.yaml.
       session.serverpod.initializeAuthServices(
-        tokenManagerBuilders: [JwtConfigFromPasswords()],
-        identityProviderBuilders: [EmailIdpConfigFromPasswords()],
+        tokenManagerBuilders: [
+          JwtConfig(
+            algorithm: JwtAlgorithm.hmacSha512(SecretKey(_testSecret())),
+            refreshTokenHashPepper: _testSecret(),
+          ),
+        ],
+        identityProviderBuilders: [
+          EmailIdpConfig(secretHashPepper: _testSecret()),
+        ],
       );
     });
     // The built-in rate limiter commits attempts on a separate connection.

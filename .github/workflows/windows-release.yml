@@ -27,6 +27,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.4'
+      - name: Test Visual C++ runtime discovery
+        shell: pwsh
+        run: ./tool/test_windows_runtime.ps1
       - name: Install dependencies
         working-directory: archive_flutter
         run: flutter pub get
