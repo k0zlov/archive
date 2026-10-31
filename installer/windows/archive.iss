@@ -27,6 +27,7 @@ MinVersion=10.0.17763
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 UninstallDisplayIcon={app}\archive_flutter.exe
+SetupIconFile=..\..\archive_flutter\windows\runner\resources\app_icon.ico
 OutputDir={#OutputDir}
 OutputBaseFilename=Archive-Setup-{#AppVersion}-{#AppBuild}-x64
 Compression=lzma2

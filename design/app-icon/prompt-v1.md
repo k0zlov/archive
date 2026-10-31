@@ -1,0 +1,7 @@
+# Archive icon — variant 1
+
+Generated with the built-in image_gen tool. Edit target: `/Users/ivankozlov/Downloads/court.png`.
+
+## Final prompt
+
+Use case: precise-object-edit / logo-brand. Edit target: supplied court.png, a black courthouse icon with transparency. Create ONE finished minimalist desktop application icon for the Ukrainian court archive app Архів. Use the supplied courthouse silhouette as the recognizable central mark, preserve its basic roof/columns/steps geometry, recolor the black mark warm ivory (#F5F4EF). Place it optically centered on a beautifully proportioned rounded-square tile in rich muted forest green (#173C34) with a very subtle lighter green upper-left to darker lower-right tonal transition. A single restrained sage-green (#B8D7A0) detail may accent the roof or upper pediment, while the main architecture stays ivory. Flat vector-like precision, generous balanced negative space, bold simplified forms legible at 32px. Tile occupies about 86% of the square canvas, central courthouse occupies about 58% of tile width. Native desktop app icon quality, calm contemporary refined. Transparent outside the rounded square, actual alpha channel. No text, no letters, no labels, no mockup, no presentation board, no extra symbols, no scales or gavels, no thin ornaments, no bevels, no glossy 3D, no heavy shadows, no black foreground. Deliver a single square high-resolution icon.

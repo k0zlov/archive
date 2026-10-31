@@ -1,0 +1,11 @@
+# Source for both desktop platforms. Regenerate with:
+# dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: assets/branding/app_icon.png
+  android: false
+  ios: false
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true
