@@ -60,8 +60,15 @@ function Get-ShellIcons {
   $small = [IntPtr]::Zero
   try {
     $count = [Archive.IconValidation]::ExtractIconExW($Path, 0, [ref]$large, [ref]$small, 1)
-    if ($count -ne 1) {
-      throw "Windows could not extract the default icon from $Path (error $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))."
+    # Both sizes are requested: a successful extraction can return 2. The
+    # return value counts extracted icons, not just RT_GROUP_ICON resources.
+    # GetLastError is meaningful only for UINT_MAX, not a positive result.
+    if ($count -eq [uint32]::MaxValue) {
+      $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+      throw "Windows could not extract the default icon from $Path (returned UINT_MAX, error $nativeError)."
+    }
+    if ($count -eq 0 -or $large -eq [IntPtr]::Zero -or $small -eq [IntPtr]::Zero) {
+      throw "Windows did not return both default icons from $Path (count=$count, large=$large, small=$small)."
     }
     return @((Get-IconPixels $large), (Get-IconPixels $small))
   } finally {
