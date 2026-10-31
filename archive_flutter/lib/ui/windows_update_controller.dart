@@ -43,17 +43,18 @@ class WindowsUpdateController extends ChangeNotifier {
 
   void _accessChanged() {
     final next = access.policy;
-    if (!checking &&
-        next != null &&
-        next.build > build &&
-        next.sha256 != release?.sha256) {
+    final available =
+        next != null && next.build > build && access.canOffer(next)
+        ? next
+        : null;
+    if (!checking && available?.sha256 != release?.sha256) {
       if (downloading) cancelDownload();
       final old = prepared;
       prepared = null;
       if (old != null) {
         unawaited(platform.discard(old).catchError((Object _) {}));
       }
-      release = next;
+      release = available;
     }
     _notify();
   }
@@ -141,7 +142,13 @@ class WindowsUpdateController extends ChangeNotifier {
 
   Future<void> download() async {
     final target = release;
-    if (busy || target == null || _disposed || build < 1) return;
+    if (busy ||
+        target == null ||
+        _disposed ||
+        build < 1 ||
+        !access.canOffer(target)) {
+      return;
+    }
     final epoch = ++_epoch, current = source;
     downloading = true;
     percent = 0;
@@ -180,12 +187,30 @@ class WindowsUpdateController extends ChangeNotifier {
 
   Future<void> install() async {
     final file = prepared, target = release;
-    if (busy || file == null || target == null || _disposed) return;
+    if (busy ||
+        file == null ||
+        target == null ||
+        _disposed ||
+        !access.canOffer(target)) {
+      return;
+    }
     final epoch = _epoch, resume = _resume;
     installing = true;
     error = null;
     _notify();
     try {
+      // Recheck just before launch: the server may have changed since download.
+      final raw = await source.check().timeout(const Duration(seconds: 8));
+      if (epoch != _epoch || _disposed) return;
+      if (raw != null) await access.accept(raw);
+      if (!access.canOffer(target) ||
+          prepared != file ||
+          release?.sha256 != target.sha256 ||
+          release?.build != target.build) {
+        throw const UpdateFailure(
+          'Сумісність оновлення змінилася. Перевірте доступні версії ще раз.',
+        );
+      }
       await _prepare?.call();
       if (epoch != _epoch || _disposed) {
         resume?.call();

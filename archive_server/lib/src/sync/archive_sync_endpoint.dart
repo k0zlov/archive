@@ -174,6 +174,7 @@ class ArchiveSyncEndpoint extends Endpoint {
     Stream<int> heartbeat, {
     String? clientPlatform,
     int? clientBuild,
+    int? clientProtocol,
   }) {
     final output = StreamController<String>();
     StreamSubscription<int>? beats;
@@ -229,9 +230,21 @@ class ArchiveSyncEndpoint extends Endpoint {
       final required = await windowsClientPolicy.requiredUpdate(
         clientPlatform ?? '',
         clientBuild ?? 0,
+        protocol: clientProtocol ?? 1,
       );
+      if (!windowsClientPolicy.protocols.contains(clientProtocol ?? 1)) {
+        send(
+          'compatibility:${jsonEncode((await windowsClientPolicy.compatibility()).toJson())}',
+        );
+        unawaited(output.close());
+        return;
+      }
       if (required != null) {
-        send('update-required:$required');
+        send(
+          clientProtocol == null
+              ? 'update-required:$required'
+              : 'compatibility:${jsonEncode((await windowsClientPolicy.compatibility()).toJson())}',
+        );
         unawaited(output.close());
         return;
       }
@@ -285,9 +298,21 @@ class ArchiveSyncEndpoint extends Endpoint {
           final required = await windowsClientPolicy.requiredUpdate(
             clientPlatform ?? '',
             clientBuild ?? 0,
+            protocol: clientProtocol ?? 1,
           );
+          if (!windowsClientPolicy.protocols.contains(clientProtocol ?? 1)) {
+            send(
+              'compatibility:${jsonEncode((await windowsClientPolicy.compatibility()).toJson())}',
+            );
+            unawaited(output.close());
+            return;
+          }
           if (required != null) {
-            send('update-required:$required');
+            send(
+              clientProtocol == null
+                  ? 'update-required:$required'
+                  : 'compatibility:${jsonEncode((await windowsClientPolicy.compatibility()).toJson())}',
+            );
             unawaited(output.close());
             return;
           }

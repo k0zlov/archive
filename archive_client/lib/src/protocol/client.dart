@@ -481,12 +481,14 @@ class EndpointArchiveSync extends _isc.EndpointRef {
     _ida.Stream<int> heartbeat, {
     String? clientPlatform,
     int? clientBuild,
+    int? clientProtocol,
   }) => caller.callStreamingServerEndpoint<_ida.Stream<String>, String>(
     'archiveSync',
     'watch',
     {
       'clientPlatform': clientPlatform,
       'clientBuild': clientBuild,
+      'clientProtocol': clientProtocol,
     },
     {'heartbeat': heartbeat},
   );

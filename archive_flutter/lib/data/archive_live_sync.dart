@@ -14,6 +14,7 @@ class ArchiveLiveSync {
     this.onPresenceSnapshot,
     this.onAlive,
     this.onUpdateRequired,
+    this.onCompatibility,
     this.heartbeatInterval = const Duration(seconds: 25),
     this.livenessTimeout = const Duration(seconds: 70),
   });
@@ -24,6 +25,7 @@ class ArchiveLiveSync {
   final void Function(Map<String, dynamic>)? onPresenceSnapshot;
   final void Function()? onAlive;
   final Future<void> Function(String)? onUpdateRequired;
+  final Future<void> Function(String)? onCompatibility;
   final Duration heartbeatInterval, livenessTimeout;
   StreamSubscription<String>? _subscription;
   StreamController<int>? _input;
@@ -51,6 +53,14 @@ class ArchiveLiveSync {
         (event) {
           if (_stopped || generation != _generation) return;
           armDeadline();
+          if (event.startsWith('compatibility:')) {
+            unawaited(
+              onCompatibility
+                  ?.call(event.substring(14))
+                  .catchError((Object _) {}),
+            );
+            return;
+          }
           if (event.startsWith('update-required:')) {
             unawaited(
               onUpdateRequired

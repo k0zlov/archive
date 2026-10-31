@@ -46,18 +46,20 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
           ARCHIVE_MANDATORY_UPDATE: ${{ inputs.mandatory }}
         run: |
-          $previous = '-'
-          try {
-            $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
-            $latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:GH_REPO/releases/latest" -Headers $headers
-            if (@($latest.assets | Where-Object name -eq 'latest.json').Count -gt 0) {
-              $folder = Join-Path $env:RUNNER_TEMP 'previous-release'
-              gh release download $latest.tag_name --pattern latest.json --dir $folder
-              if ($LASTEXITCODE -ne 0) { throw 'Cannot download previous release metadata.' }
-              $previous = Join-Path $folder 'latest.json'
+          $previous = Join-Path $env:RUNNER_TEMP 'previous-releases'
+          New-Item -ItemType Directory -Path $previous -Force | Out-Null
+          $pagesJson = gh api --paginate --slurp "repos/$env:GH_REPO/releases?per_page=100"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot list previous releases.' }
+          $pages = ($pagesJson -join "`n") | ConvertFrom-Json
+          foreach ($page in $pages) {
+            foreach ($item in $page) {
+              if ($item.draft -or $item.prerelease) { continue }
+              if (@($item.assets | Where-Object name -eq 'latest.json').Count -eq 1) {
+                $folder = Join-Path $previous ([string]$item.id)
+                gh release download $item.tag_name --pattern latest.json --dir $folder
+                if ($LASTEXITCODE -ne 0) { throw 'Cannot download previous release metadata.' }
+              }
             }
-          } catch {
-            if (-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404) { throw }
           }
           $result = Join-Path $env:RUNNER_TEMP 'release-build.json'
           Push-Location archive_shared

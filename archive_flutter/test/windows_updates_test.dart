@@ -12,6 +12,7 @@ import 'package:archive_flutter/ui/windows_update_panel.dart';
 import 'package:archive_flutter/ui/server_settings_dialog.dart';
 import 'package:archive_flutter/ui/theme.dart';
 import 'package:archive_shared/windows_release.dart';
+import 'package:archive_shared/client_protocol.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
@@ -257,6 +258,51 @@ void main() {
       expect(await File(ready.path).exists(), isFalse);
     },
   );
+  test(
+    'server compatibility is rechecked before launching a prepared installer',
+    () async {
+      final access = ClientAccess(
+        platform: 'windows',
+        build: 1,
+        trustedKey: key,
+      );
+      addTearDown(access.dispose);
+      final future = await signWindowsRelease(
+        WindowsRelease(
+          version: '1.0.1',
+          build: 2,
+          clientProtocol: 2,
+          sha256: release.sha256,
+          size: release.size,
+        ),
+        seed,
+      );
+      await access.acceptCompatibility(
+        UpdateCompatibility(protocols: [1, 2], manifest: future),
+      );
+      source.envelope = future;
+      final c = WindowsUpdateController(
+        version: '1.0.0',
+        build: 1,
+        trustedKey: key,
+        source: source,
+        platform: platform,
+        access: access,
+      );
+      addTearDown(c.dispose);
+      await c.check();
+      await c.download();
+      expect(c.prepared, isNotNull);
+      source.gate = Completer<String?>();
+      final installing = c.install();
+      await Future<void>.delayed(Duration.zero);
+      await access.acceptCompatibility(UpdateCompatibility(protocols: [1]));
+      source.gate!.complete(null);
+      await installing;
+      expect(platform.installed, 0);
+      expect(c.error, contains('Сумісність'));
+    },
+  );
   test('corrupt or cancelled downloads leave no runnable installer', () async {
     final directory = await Directory.systemTemp.createTemp(
       'archive-bad-download-',
@@ -288,6 +334,55 @@ void main() {
   });
 
   for (final brightness in Brightness.values) {
+    testWidgets(
+      '$brightness newer protocol waits for the server and retains offline and update actions',
+      (tester) async {
+        final access = ClientAccess(
+          platform: 'windows',
+          build: 20,
+          protocol: 2,
+          trustedKey: key,
+        );
+        addTearDown(access.dispose);
+        final c = WindowsUpdateController(
+          version: '1.0.3',
+          build: 20,
+          trustedKey: key,
+          source: source,
+          platform: platform,
+          access: access,
+        );
+        addTearDown(c.dispose);
+        await c.check();
+        expect(
+          c.release,
+          isNull,
+        ); // Compatible older build must never be offered as a downgrade.
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: archiveTheme(brightness: brightness),
+            home: WindowsUpdateHost(
+              controller: c,
+              child: const Scaffold(body: Text('Локальна база')),
+            ),
+          ),
+        );
+        expect(find.text('Потрібне оновлення сервера'), findsOneWidget);
+        expect(find.text('Завантажити'), findsNothing);
+        await tester.tap(find.text('Працювати офлайн'));
+        await tester.pumpAndSettle();
+        expect(find.text('Локальна база'), findsOneWidget);
+        expect(access.onlineAllowed, false);
+        // The server is upgraded; reconnecting is possible without reinstalling.
+        await access.acceptCompatibility(
+          UpdateCompatibility(protocols: [1, 2]),
+        );
+        await tester.pumpAndSettle();
+        expect(access.onlineAllowed, true);
+        expect(find.textContaining('Офлайн ·'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final hasCache in [true, false]) {
       testWidgets('$brightness mandatory update with cache=$hasCache', (
         tester,
@@ -324,7 +419,7 @@ void main() {
         if (hasCache) {
           expect(find.text('Локальні справи'), findsOneWidget);
           expect(c.access.onlineAllowed, isFalse);
-          await tester.tap(find.text('Оновити'));
+          await tester.tap(find.text('Переглянути'));
           await tester.pumpAndSettle();
           expect(find.text('Потрібне оновлення'), findsOneWidget);
         } else {

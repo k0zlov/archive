@@ -1586,6 +1586,7 @@ class _ArchiveSyncEndpoint {
     _ida.Stream<int> heartbeat, {
     String? clientPlatform,
     int? clientBuild,
+    int? clientProtocol,
   }) {
     var _localTestStreamManager = _ist.TestStreamManager<String>();
     _ist.callStreamFunctionAndHandleExceptions(
@@ -1603,6 +1604,7 @@ class _ArchiveSyncEndpoint {
               arguments: {
                 'clientPlatform': clientPlatform,
                 'clientBuild': clientBuild,
+                'clientProtocol': clientProtocol,
               },
               requestedInputStreams: ['heartbeat'],
               serializationManager: _serializationManager,

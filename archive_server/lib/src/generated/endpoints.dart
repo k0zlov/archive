@@ -1004,6 +1004,11 @@ class Endpoints extends _is.EndpointDispatch {
               type: _is.getType<int?>(),
               nullable: true,
             ),
+            'clientProtocol': _is.ParameterDescription(
+              name: 'clientProtocol',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
           },
           streamParams: {
             'heartbeat': _is.StreamParameterDescription<int>(
@@ -1023,6 +1028,7 @@ class Endpoints extends _is.EndpointDispatch {
                     streamParams['heartbeat']!.cast<int>(),
                     clientPlatform: params['clientPlatform'],
                     clientBuild: params['clientBuild'],
+                    clientProtocol: params['clientProtocol'],
                   ),
         ),
       },

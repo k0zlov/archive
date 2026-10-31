@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:archive_shared/windows_release.dart';
+import 'package:archive_shared/client_protocol.dart';
 
 /// Called only inside CI. Version changes stay in the build checkout.
 Future<void> main(List<String> args) async {
@@ -33,11 +34,24 @@ Future<void> main(List<String> args) async {
     throw StateError('Client and server update public keys differ.');
   }
   WindowsRelease? previous;
+  var minimum = 1;
+  final history = <File>[];
   if (args[2].isNotEmpty && args[2] != '-') {
-    previous = await verifyWindowsRelease(
-      await File(args[2]).readAsString(),
-      key,
-    );
+    if (await Directory(args[2]).exists()) {
+      await for (final entity in Directory(args[2]).list(recursive: true)) {
+        if (entity is File && entity.path.endsWith('latest.json'))
+          history.add(entity);
+      }
+    } else {
+      history.add(File(args[2]));
+    }
+  }
+  for (final file in history) {
+    final release = await verifyWindowsRelease(await file.readAsString(), key);
+    if (previous == null || release.build > previous.build) previous = release;
+    if (release.clientProtocol == archiveClientProtocol &&
+        release.minimumSupportedBuild > minimum)
+      minimum = release.minimumSupportedBuild;
   }
   final sourceVersion = match.group(1)!;
   final String version;
@@ -80,7 +94,8 @@ Future<void> main(List<String> args) async {
       'minimumSupportedBuild':
           Platform.environment['ARCHIVE_MANDATORY_UPDATE'] == 'true'
           ? build
-          : previous?.minimumSupportedBuild ?? 1,
+          : minimum,
+      'clientProtocol': archiveClientProtocol,
     }),
   );
 }

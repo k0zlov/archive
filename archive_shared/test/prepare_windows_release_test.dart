@@ -61,6 +61,7 @@ void main() {
         'build': 9,
         'tag': 'windows-1.0.1-b9',
         'minimumSupportedBuild': 1,
+        'clientProtocol': 1,
       });
       expect(await pubspec.readAsString(), contains('version: 1.0.1+9'));
       expect((await run('-', '-')).exitCode, 0);
@@ -95,6 +96,29 @@ void main() {
       expect((await run(previous.path, '-', mandatory: true)).exitCode, 0);
       final nextCritical = jsonDecode(await File(output).readAsString()) as Map;
       expect(nextCritical['minimumSupportedBuild'], nextCritical['build']);
+      final history = Directory('${root.path}/history');
+      await history.create();
+      await File(
+        '${history.path}/old-latest.json',
+      ).writeAsString(await signWindowsRelease(critical, seed));
+      await File('${history.path}/future-latest.json').writeAsString(
+        await signWindowsRelease(
+          WindowsRelease(
+            version: '1.0.2',
+            build: 20,
+            clientProtocol: 2,
+            minimumSupportedBuild: 20,
+            sha256: 'b' * 64,
+            size: 10,
+          ),
+          seed,
+        ),
+      );
+      expect((await run(history.path, '-', mandatory: false)).exitCode, 0);
+      final patch = jsonDecode(await File(output).readAsString()) as Map;
+      expect(patch['build'], greaterThan(20));
+      expect(patch['minimumSupportedBuild'], 10);
+      expect(patch['clientProtocol'], 1);
       expect((await run(previous.path, '0.9.0')).exitCode, isNot(0));
       expect((await run('-', r'$(bad)')).exitCode, isNot(0));
       await previous.writeAsString('{}');

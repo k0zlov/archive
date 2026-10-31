@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:archive_client/archive_client.dart';
+import 'archive_api_client.dart';
 
 abstract interface class UpdateSource {
   Future<String?> check();
@@ -11,16 +12,20 @@ class ServerpodUpdateSource implements UpdateSource {
   ServerpodUpdateSource(this.client);
   final Client client;
   @override
-  Future<String?> check() => client.callServerEndpoint<String?>(
-    'updates',
-    'check',
-    {},
-    authenticated: false,
-  );
+  Future<String?> check() => client is ArchiveApiClient
+      ? (client as ArchiveApiClient).checkUpdates()
+      : client.callServerEndpoint<String?>(
+          'updates',
+          'check',
+          {},
+          authenticated: false,
+        );
   @override
   Future<ByteData> download(String hash, int offset) =>
-      client.callServerEndpoint<ByteData>('updates', 'download', {
-        'sha256': hash,
-        'offset': offset,
-      }, authenticated: false);
+      client is ArchiveApiClient
+      ? (client as ArchiveApiClient).downloadUpdate(hash, offset)
+      : client.callServerEndpoint<ByteData>('updates', 'download', {
+          'sha256': hash,
+          'offset': offset,
+        }, authenticated: false);
 }

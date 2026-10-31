@@ -5,6 +5,8 @@ import 'package:archive_flutter/data/updates/client_access.dart';
 import 'package:archive_flutter/ui/archive_controller.dart';
 import 'package:archive_shared/archive_schema.dart';
 import 'package:archive_shared/windows_release.dart';
+import 'package:archive_shared/client_protocol.dart';
+import 'package:archive_flutter/data/updates/update_source.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -64,7 +66,160 @@ void main() {
       expect(sent, hasLength(1));
       expect(sent.single.headers['x-archive-platform'], 'windows');
       expect(sent.single.headers['x-archive-build'], '2');
+      expect(sent.single.headers['x-archive-protocol'], '1');
       expect(sent.single.headers.containsKey('authorization'), isFalse);
+    },
+  );
+  test(
+    'future client stays offline on an older server while the stable update channel and downloads remain available',
+    () async {
+      final future = ClientAccess(
+        platform: 'windows',
+        build: 20,
+        protocol: 2,
+        trustedKey: key,
+      );
+      final sent = <http.Request>[];
+      final client = ArchiveApiClient(
+        'http://localhost:8080/',
+        future,
+        httpClient: MockClient((r) async {
+          sent.add(r);
+          if (r.url.path.endsWith('/check')) {
+            return http.Response(
+              jsonEncode({
+                'format': 1,
+                'protocols': [1],
+                'manifest': mandatory,
+              }),
+              200,
+            );
+          }
+          return http.Response.bytes([77, 90], 200);
+        }),
+      );
+      addTearDown(client.close);
+      final updates = ServerpodUpdateSource(client);
+      await updates.check();
+      expect(future.serverUpgradeRequired, true);
+      expect(future.onlineAllowed, false);
+      future.chooseOffline();
+      expect(
+        () => client.archive.profile(),
+        throwsA(isA<ClientOfflineException>()),
+      );
+      expect((await updates.download('a' * 64, 0)).lengthInBytes, 2);
+      expect(sent, hasLength(2));
+      expect(sent.every((r) => !r.headers.containsKey('authorization')), true);
+      await future.acceptCompatibility(UpdateCompatibility(protocols: [1, 2]));
+      expect(future.onlineAllowed, true);
+    },
+  );
+  test(
+    'bootstrap fallback is limited to legacy servers; errors never silently enable a future protocol',
+    () async {
+      var rpcCalls = 0;
+      final future = ClientAccess(
+        platform: 'windows',
+        build: 20,
+        protocol: 2,
+        trustedKey: key,
+      );
+      var status = 404;
+      final client = ArchiveApiClient(
+        'http://localhost:8080/',
+        future,
+        httpClient: MockClient((r) async {
+          if (r.url.path.contains('client-updates')) {
+            return http.Response('', status);
+          }
+          rpcCalls++;
+          return http.Response(jsonEncode(mandatory), 200);
+        }),
+      );
+      addTearDown(client.close);
+      await client.checkUpdates();
+      expect(rpcCalls, 1);
+      expect(future.protocolBlocked, true);
+      status = 500;
+      await expectLater(client.checkUpdates(), throwsFormatException);
+      expect(rpcCalls, 1);
+      expect(future.onlineAllowed, false);
+    },
+  );
+  test(
+    'signed policies retain separate floors across protocol changes and reject incompatible offers',
+    () async {
+      String? stored;
+      access.remember = (raw) async => stored = raw;
+      await access.accept(mandatory);
+      final newer = await signWindowsRelease(
+        WindowsRelease(
+          version: '1.0.4',
+          build: 20,
+          minimumSupportedBuild: 20,
+          clientProtocol: 2,
+          sha256: 'b' * 64,
+          size: 2,
+        ),
+        seed,
+      );
+      await access.acceptCompatibility(
+        UpdateCompatibility(protocols: [1, 2], manifest: newer),
+      );
+      expect(access.requiredUpdate, true);
+      final restored = ClientAccess(
+        platform: 'windows',
+        build: 10,
+        trustedKey: key,
+      );
+      addTearDown(restored.dispose);
+      await restored.restorePolicy(stored!);
+      await restored.acceptCompatibility(
+        UpdateCompatibility(protocols: [1], manifest: mandatory),
+      );
+      expect(
+        restored.onlineAllowed,
+        true,
+      ); // Protocol 2's floor cannot poison protocol 1.
+      expect(restored.policy!.minimumSupportedBuild, 8);
+      await expectLater(
+        restored.acceptCompatibility(
+          UpdateCompatibility(protocols: [1], manifest: newer),
+        ),
+        throwsFormatException,
+      );
+      expect(restored.policy!.clientProtocol, 1);
+      final softTarget = await signWindowsRelease(
+        WindowsRelease(
+          version: '1.0.5',
+          build: 30,
+          clientProtocol: 2,
+          sha256: 'c' * 64,
+          size: 2,
+        ),
+        seed,
+      );
+      final fresh = ClientAccess(
+        platform: 'windows',
+        build: 2,
+        trustedKey: key,
+      );
+      addTearDown(fresh.dispose);
+      await fresh.acceptCompatibility(
+        UpdateCompatibility(
+          protocols: [1, 2],
+          manifest: softTarget,
+          policyManifests: [mandatory],
+        ),
+      );
+      expect(fresh.policy!.clientProtocol, 2);
+      expect(
+        fresh.requiredUpdate,
+        true,
+      ); // Own protocol's signed floor applies on a fresh install too.
+      expect(fresh.onlineAllowed, false);
+      access.dispose();
     },
   );
   test(
@@ -118,7 +273,7 @@ void main() {
         build: 2,
         trustedKey: key,
       );
-      await restoredAccess.accept(persisted!, persist: false);
+      await restoredAccess.restorePolicy(persisted!);
       restoredAccess.checkFailed();
       expect(restoredAccess.requiredUpdate, isTrue);
       final store = MemoryStore(), seedClient = TestClient();

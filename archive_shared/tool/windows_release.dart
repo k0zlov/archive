@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive_shared/windows_release.dart';
+import 'package:archive_shared/client_protocol.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 
@@ -69,6 +70,7 @@ Future<void> main(List<String> args) async {
           ? await File(args[6]).readAsString()
           : '',
       minimumSupportedBuild: args.length == 8 ? int.parse(args[7]) : 1,
+      clientProtocol: archiveClientProtocol,
     );
     final seed = base64Decode((await File(args[4]).readAsString()).trim());
     final envelope = await signWindowsRelease(release, seed);
@@ -87,12 +89,25 @@ Future<void> main(List<String> args) async {
     }
     final output = Directory(args[5]);
     await output.create(recursive: true);
+    final protocolManifest = File(
+      '${output.path}/protocol-${release.clientProtocol}.json',
+    );
+    if (await protocolManifest.exists()) {
+      final previous = await verifyWindowsRelease(
+        await protocolManifest.readAsString(),
+        base64Encode((await expectedPublic).bytes),
+      );
+      if (release.minimumSupportedBuild < previous.minimumSupportedBuild ||
+          release.build < previous.build)
+        throw StateError('Protocol release cannot go backwards.');
+    }
     final existingManifest = File('${output.path}/latest.json');
     if (await existingManifest.exists()) {
       final previous = decodeWindowsRelease(
         await existingManifest.readAsString(),
       );
-      if (release.minimumSupportedBuild < previous.minimumSupportedBuild) {
+      if (release.clientProtocol == previous.clientProtocol &&
+          release.minimumSupportedBuild < previous.minimumSupportedBuild) {
         throw StateError('Minimum supported build cannot decrease.');
       }
       if (release.build < previous.build ||
@@ -115,6 +130,9 @@ Future<void> main(List<String> args) async {
     final temporary = File('${manifest.path}.tmp');
     await temporary.writeAsString(envelope, flush: true);
     await temporary.rename(manifest.path);
+    final protocolPending = File('${protocolManifest.path}.tmp');
+    await protocolPending.writeAsString(envelope, flush: true);
+    await protocolPending.rename(protocolManifest.path);
     stdout.writeln(
       'Release ${release.version}+${release.build} prepared in ${output.path}.',
     );

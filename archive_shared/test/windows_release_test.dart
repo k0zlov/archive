@@ -50,6 +50,8 @@ void main() {
         {'architecture': 'arm64'},
         {'version': '../1'},
         {'build': 0},
+        {'clientProtocol': 0},
+        {'clientProtocol': '2'},
         {'minimumSupportedBuild': 0},
         {'minimumSupportedBuild': 3},
         {'minimumSupportedBuild': '2'},
@@ -79,8 +81,34 @@ void main() {
   test(
     'old manifests remain compatible and the minimum is covered by the signature',
     () async {
-      final legacy = release().toJson()..remove('minimumSupportedBuild');
+      final legacy = release().toJson()
+        ..remove('minimumSupportedBuild')
+        ..remove('clientProtocol');
       expect(WindowsRelease.fromJson(legacy).minimumSupportedBuild, 1);
+      expect(WindowsRelease.fromJson(legacy).clientProtocol, 1);
+      final legacyBytes = utf8.encode(jsonEncode(legacy));
+      final legacySignature = await Ed25519().sign(
+        legacyBytes,
+        keyPair: await Ed25519().newKeyPairFromSeed(seed),
+      );
+      final legacyEnvelope = {
+        'format': 1,
+        'payload': base64Encode(legacyBytes),
+        'signature': base64Encode(legacySignature.bytes),
+      };
+      expect(
+        (await verifyWindowsRelease(
+          jsonEncode(legacyEnvelope),
+          key,
+        )).clientProtocol,
+        1,
+      );
+      legacy['clientProtocol'] = 2;
+      legacyEnvelope['payload'] = base64Encode(utf8.encode(jsonEncode(legacy)));
+      await expectLater(
+        verifyWindowsRelease(jsonEncode(legacyEnvelope), key),
+        throwsFormatException,
+      );
       final mandatory = WindowsRelease(
         version: '1.0.1',
         build: 2,

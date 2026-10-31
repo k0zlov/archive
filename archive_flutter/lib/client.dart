@@ -69,7 +69,7 @@ Future<ConnectedServer> _openServer(
     access.remember = (raw) => policies.write(canonical, raw);
     try {
       final cached = await policies.read(canonical);
-      if (cached != null) await access.accept(cached, persist: false);
+      if (cached != null) await access.restorePolicy(cached);
     } catch (_) {}
     access.checked = false;
   }

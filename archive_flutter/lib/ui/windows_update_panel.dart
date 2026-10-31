@@ -22,7 +22,9 @@ class WindowsUpdatePanel extends StatelessWidget {
           : release != null
           ? 'Доступна версія ${release.version} (${release.build}).'
           : c.checked
-          ? 'Оновлень немає.'
+          ? c.access.protocolBlocked
+                ? 'Сумісних оновлень поки немає.'
+                : 'Оновлень немає.'
           : 'Перевірте наявність нової версії.';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,7 +140,7 @@ class WindowsUpdateHost extends StatelessWidget {
             body: Center(child: Text('Перевірка сумісності із сервером…')),
           );
         }
-        if (access.requiredUpdate && !access.offlineChosen) {
+        if (access.blocked && !access.offlineChosen) {
           return Scaffold(
             body: Center(
               child: SingleChildScrollView(
@@ -150,12 +152,16 @@ class WindowsUpdateHost extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Потрібне оновлення',
+                        access.serverUpgradeRequired
+                            ? 'Потрібне оновлення сервера'
+                            : 'Потрібне оновлення',
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Ця версія більше не підтримує роботу із сервером. Оновіть застосунок або переглядайте локальну копію без змін.',
+                      Text(
+                        access.serverUpgradeRequired
+                            ? 'Цей застосунок потребує новішого сервера. Зверніться до адміністратора або переглядайте локальну копію без змін.'
+                            : 'Ця версія більше не підтримує роботу із сервером. Оновіть застосунок або переглядайте локальну копію без змін.',
                       ),
                       const SizedBox(height: 24),
                       WindowsUpdatePanel(controller: c),
@@ -172,7 +178,7 @@ class WindowsUpdateHost extends StatelessWidget {
                                 } else {
                                   showArchiveMessage(
                                     context,
-                                    'Локальної копії немає. Спочатку оновіть застосунок і підключіться до сервера.',
+                                    'Локальної копії немає. Для підключення потрібні сумісні версії застосунку та сервера.',
                                   );
                                 }
                               },
@@ -193,7 +199,7 @@ class WindowsUpdateHost extends StatelessWidget {
         }
         return Column(
           children: [
-            if (access.requiredUpdate || access.unavailable)
+            if (access.blocked || access.unavailable)
               Material(
                 color: context.archiveColors.subtleSurface,
                 child: SafeArea(
@@ -207,19 +213,21 @@ class WindowsUpdateHost extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            access.requiredUpdate
-                                ? 'Офлайн · потрібне оновлення для роботи із сервером'
+                            access.blocked
+                                ? access.serverUpgradeRequired
+                                      ? 'Офлайн · потрібне оновлення сервера'
+                                      : 'Офлайн · потрібне оновлення для роботи із сервером'
                                 : 'Офлайн · не вдалося перевірити зв’язок із сервером',
                           ),
                         ),
                         TextButton(
-                          onPressed: access.requiredUpdate
+                          onPressed: access.blocked
                               ? access.showChoice
                               : c.busy
                               ? null
                               : c.check,
                           child: Text(
-                            access.requiredUpdate ? 'Оновити' : 'Повторити',
+                            access.blocked ? 'Переглянути' : 'Повторити',
                           ),
                         ),
                       ],
@@ -227,9 +235,7 @@ class WindowsUpdateHost extends StatelessWidget {
                   ),
                 ),
               ),
-            if (c.release != null &&
-                !access.requiredUpdate &&
-                !access.unavailable)
+            if (c.release != null && !access.blocked && !access.unavailable)
               Material(
                 color: context.archiveColors.subtleSurface,
                 child: SafeArea(

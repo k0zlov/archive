@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:archive_shared/windows_release.dart';
+import 'package:archive_shared/client_protocol.dart';
 import 'package:crypto/crypto.dart';
 import 'windows_release_store.dart';
 
 abstract interface class GithubReleaseSource {
-  Future<Map<String, dynamic>?> latest(String repository);
+  Stream<Map<String, dynamic>> releases(String repository);
   Stream<List<int>> asset(String repository, int id);
 }
 
@@ -61,18 +62,28 @@ class PublicGithubReleases implements GithubReleaseSource {
   }
 
   @override
-  Future<Map<String, dynamic>?> latest(String repository) async {
-    try {
-      final bytes = await _collect(
-        _get(
-          Uri.https('api.github.com', '/repos/$repository/releases/latest'),
-          binary: false,
-        ),
-        256 * 1024,
-      );
-      return jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-    } on _NoGithubRelease {
-      return null;
+  Stream<Map<String, dynamic>> releases(String repository) async* {
+    for (var page = 1; ; page++) {
+      List<dynamic> items;
+      try {
+        final bytes = await _collect(
+          _get(
+            Uri.https('api.github.com', '/repos/$repository/releases', {
+              'per_page': '100',
+              'page': '$page',
+            }),
+            binary: false,
+          ),
+          8 * 1024 * 1024,
+        );
+        items = jsonDecode(utf8.decode(bytes)) as List;
+      } on _NoGithubRelease {
+        return;
+      }
+      for (final item in items) {
+        yield Map<String, dynamic>.from(item as Map);
+      }
+      if (items.length < 100) return;
     }
   }
 
@@ -109,8 +120,11 @@ class GithubReleaseSync {
     required this.publicKey,
     required this.source,
     this.onFailure,
+    this.protocols = archiveServerProtocols,
   });
   final String repository;
+  final List<int> protocols;
+  final _manifestCache = <int, String>{};
   final WindowsReleaseStore store;
   final Future<String> Function() publicKey;
   final GithubReleaseSource source;
@@ -151,43 +165,121 @@ class GithubReleaseSync {
     return work.whenComplete(() => _running = null);
   }
 
-  Future<WindowsRelease?> _current(String key) async {
+  Future<WindowsRelease?> _current(String key, int protocol) async {
+    WindowsRelease? current;
     try {
-      final raw = await store.check();
-      return raw == null ? null : await verifyWindowsRelease(raw, key);
-    } catch (_) {
-      return null;
+      for (final raw in await store.available()) {
+        try {
+          final release = await verifyWindowsRelease(raw, key);
+          if (release.clientProtocol == protocol &&
+              (current == null || release.build > current.build)) {
+            current = release;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return current;
+  }
+
+  Future<String> _manifest(Map asset, String key) async {
+    final id = asset['id'];
+    if (id is! int ||
+        id < 1 ||
+        asset['size'] is! int ||
+        (asset['size'] as int) > 32768) {
+      throw const FormatException('Invalid manifest asset');
     }
+    final file = File('${store.directory.path}/manifests/$id.json');
+    var raw = _manifestCache[id];
+    if (raw == null && await file.exists() && await file.length() <= 32768) {
+      raw = await file.readAsString();
+    }
+    if (raw != null) {
+      try {
+        await verifyWindowsRelease(raw, key);
+        return raw;
+      } catch (_) {}
+    }
+    raw = utf8.decode(await _collect(source.asset(repository, id), 32768));
+    await verifyWindowsRelease(raw, key);
+    _manifestCache[id] = raw;
+    await file.parent.create(recursive: true);
+    await file.writeAsString(raw, flush: true);
+    return raw;
   }
 
   Future<void> _sync() async {
     if (!RegExp(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$').hasMatch(repository)) {
       throw const FormatException('Invalid repository');
     }
-    final metadata = await source.latest(repository);
-    if (metadata == null ||
-        metadata['draft'] == true ||
-        metadata['prerelease'] == true ||
-        _stopped) {
-      return;
-    }
-    final assets = (metadata['assets'] as List).cast<Map>();
-    final manifests = assets.where(
-      (a) => a['name'] == 'latest.json' && a['state'] == 'uploaded',
-    );
-    if (manifests.length != 1) return;
-    final manifest = manifests.single;
-    if (manifest['id'] is! int ||
-        manifest['size'] is! int ||
-        (manifest['size'] as int) > 32768) {
-      throw const FormatException('Invalid manifest asset');
-    }
-    final raw = utf8.decode(
-      await _collect(source.asset(repository, manifest['id'] as int), 32768),
-    );
     final key = await publicKey();
-    final release = await verifyWindowsRelease(raw, key);
-    final current = await _current(key);
+    final candidates = <({WindowsRelease release, String raw, Map binary})>[];
+    await for (final metadata in source.releases(repository)) {
+      if (_stopped) return;
+      if (metadata['draft'] == true || metadata['prerelease'] == true) continue;
+      try {
+        final assets = (metadata['assets'] as List).cast<Map>();
+        final manifest = assets.where(
+          (a) => a['name'] == 'latest.json' && a['state'] == 'uploaded',
+        );
+        if (manifest.length != 1) continue;
+        final raw = await _manifest(manifest.single, key);
+        final release = await verifyWindowsRelease(raw, key);
+        if (!protocols.contains(release.clientProtocol)) continue;
+        final binaries = assets.where(
+          (a) =>
+              a['name'] == '${release.sha256}.exe' && a['state'] == 'uploaded',
+        );
+        if (binaries.length != 1 ||
+            binaries.single['id'] is! int ||
+            binaries.single['size'] != release.size) {
+          throw const FormatException('Missing installer asset');
+        }
+        candidates.add((release: release, raw: raw, binary: binaries.single));
+      } catch (_) {
+        onFailure?.call();
+      }
+    }
+    candidates.sort((a, b) => b.release.build.compareTo(a.release.build));
+    final completed = <int>{};
+    for (final candidate in candidates) {
+      if (completed.contains(candidate.release.clientProtocol)) continue;
+      try {
+        await _publish(candidate.release, candidate.raw, candidate.binary, key);
+        completed.add(candidate.release.clientProtocol);
+      } catch (_) {
+        onFailure?.call();
+      }
+    }
+    // Keep the legacy announcement compatible too. Old binaries remain addressable.
+    String? selected;
+    var build = 0;
+    try {
+      for (final raw in await store.available()) {
+        try {
+          final release = await verifyWindowsRelease(raw, key);
+          if (protocols.contains(release.clientProtocol) &&
+              release.build > build) {
+            selected = raw;
+            build = release.build;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    if (selected != null && !_stopped) {
+      final pending = File('${store.directory.path}/latest.github.tmp');
+      await pending.writeAsString(selected, flush: true);
+      await pending.rename('${store.directory.path}/latest.json');
+    }
+  }
+
+  Future<void> _publish(
+    WindowsRelease release,
+    String raw,
+    Map binaryAsset,
+    String key,
+  ) async {
+    final current = await _current(key, release.clientProtocol);
     if (current != null &&
         (current.build > release.build ||
             current.minimumSupportedBuild > release.minimumSupportedBuild)) {
@@ -197,14 +289,6 @@ class GithubReleaseSync {
         current.build == release.build &&
         current.sha256 != release.sha256) {
       throw const FormatException('Conflicting release build');
-    }
-    final matching = assets.where(
-      (a) => a['name'] == '${release.sha256}.exe' && a['state'] == 'uploaded',
-    );
-    if (matching.length != 1 ||
-        matching.single['id'] is! int ||
-        matching.single['size'] != release.size) {
-      throw const FormatException('Missing installer asset');
     }
     if (current?.sha256 == release.sha256 && _verifiedHash == release.sha256) {
       return;
@@ -221,7 +305,7 @@ class GithubReleaseSync {
           var count = 0;
           await for (final part in source.asset(
             repository,
-            matching.single['id'] as int,
+            binaryAsset['id'] as int,
           )) {
             count += part.length;
             if (_stopped || count > release.size) {
@@ -245,7 +329,7 @@ class GithubReleaseSync {
       }
       if (_stopped) return;
       // A manual publication may have happened while the network request ran.
-      final newest = await _current(key);
+      final newest = await _current(key, release.clientProtocol);
       if (newest != null &&
           (newest.build > release.build ||
               newest.minimumSupportedBuild > release.minimumSupportedBuild)) {
@@ -256,9 +340,13 @@ class GithubReleaseSync {
           newest.sha256 != release.sha256) {
         throw const FormatException('Conflicting release build');
       }
-      final pending = File('${store.directory.path}/latest.github.tmp');
+      final pending = File(
+        '${store.directory.path}/protocol-${release.clientProtocol}.tmp',
+      );
       await pending.writeAsString(raw, flush: true);
-      await pending.rename('${store.directory.path}/latest.json');
+      await pending.rename(
+        '${store.directory.path}/protocol-${release.clientProtocol}.json',
+      );
       _verifiedHash = release.sha256;
     } finally {
       if (await partial.exists()) await partial.delete();

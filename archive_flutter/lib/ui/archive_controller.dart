@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:archive_shared/client_protocol.dart';
 import 'package:flutter/foundation.dart';
 import 'package:archive_shared/archive_schema.dart';
 import '../data/archive_repository.dart';
@@ -60,7 +62,18 @@ class ArchiveController extends ChangeNotifier {
     onPresenceSnapshot: repository.applyMemberPresence,
     onUpdateRequired: (raw) async {
       try {
-        await repository.access?.accept(raw);
+        await repository.access?.acceptCompatibility(
+          UpdateCompatibility(protocols: [1], manifest: raw),
+        );
+      } catch (_) {
+        repository.access?.checkFailed();
+      }
+    },
+    onCompatibility: (raw) async {
+      try {
+        await repository.access?.acceptCompatibility(
+          UpdateCompatibility.fromJson(jsonDecode(raw) as Map<String, dynamic>),
+        );
       } catch (_) {
         repository.access?.checkFailed();
       }
