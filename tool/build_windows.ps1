@@ -40,6 +40,8 @@ Push-Location "$root\archive_flutter"
 try {
   & flutter pub get
   if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
+  & dart run tool/generate_app_icons.dart
+  if ($LASTEXITCODE -ne 0) { throw 'Desktop icon generation failed.' }
   & flutter build windows --release --target lib/main.dart
   if ($LASTEXITCODE -ne 0) { throw 'Flutter Windows build failed.' }
 } finally { Pop-Location }

@@ -1,0 +1,7 @@
+# Windows icon — enlarged variant
+
+Generated with the built-in image_gen tool. Edit target: `archive_flutter/assets/branding/app_icon.png`. Final asset: `archive_flutter/assets/branding/app_icon_windows.png`. macOS keeps its original artwork.
+
+## Final prompt
+
+Use case: precise-object-edit. Edit target: supplied existing Archive app icon. Produce a revised Windows desktop app icon of THE SAME design. Preserve the forest-green rounded-square tile, ivory classical courthouse with three columns and sage pediment, exact palette and recognizable geometry. The current icon has too much outer transparent padding and the courthouse looks too small in Windows. Make the rounded-square tile occupy 97–98% of the square canvas width and height, with only 1–1.5% transparent safety margin on each side. Increase the courthouse mark to about 76–80% of the tile width, optically centered with balanced top and bottom breathing space. Add a restrained thin neutral silver-gray edge around the green rounded tile (about 0.6% of canvas width), crisp and subtle, to provide separation on light and dark Windows backgrounds. Keep the existing muted green tonal transition and warm ivory color. Flat clean app-icon artwork, legible when reduced to 16–32 pixels; no new elements, no text, no letters, no extra square surrounding it, no dark drop shadows, no 3D bevel. Actual transparent alpha outside the rounded tile. Deliver one finished square icon, not a comparison or mockup.

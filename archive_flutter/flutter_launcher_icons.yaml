@@ -1,11 +1,12 @@
-# Source for both desktop platforms. Regenerate with:
-# dart run flutter_launcher_icons
+# Regenerate macOS assets and the multi-resolution Windows ICO with:
+# dart run tool/generate_app_icons.dart
 flutter_launcher_icons:
   image_path: assets/branding/app_icon.png
   android: false
   ios: false
   windows:
     generate: true
+    image_path: assets/branding/app_icon_windows.png
     icon_size: 256
   macos:
     generate: true
