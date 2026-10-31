@@ -25,8 +25,9 @@ Future<void> main() async {
   final source = image.decodePng(
     await File.fromUri(root.resolve(sourcePath)).readAsBytes(),
   );
-  if (source == null || source.width != source.height)
+  if (source == null || source.width != source.height) {
     throw StateError('The icon must be a square PNG.');
+  }
   const sizes = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
   final frames = [
     for (final size in sizes)

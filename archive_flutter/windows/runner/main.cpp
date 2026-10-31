@@ -1,6 +1,7 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <shobjidl.h>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -27,6 +28,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+  // Must match AppUserModelID on the installer shortcuts. Keep it stable
+  // across releases so Explorer associates the window with the Archive link.
+  ::SetCurrentProcessExplicitAppUserModelID(L"Archive.Desktop");
 
   flutter::DartProject project(L"data");
 

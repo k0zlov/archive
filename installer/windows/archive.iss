@@ -26,7 +26,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 DisableProgramGroupPage=yes
 DisableDirPage=auto
-UninstallDisplayIcon={app}\archive_flutter.exe
+UninstallDisplayIcon={app}\icons\archive-{#AppBuild}.ico
 SetupIconFile=..\..\archive_flutter\windows\runner\resources\app_icon.ico
 OutputDir={#OutputDir}
 OutputBaseFilename=Archive-Setup-{#AppVersion}-{#AppBuild}-x64
@@ -45,14 +45,17 @@ Name: "desktopicon"; Description: "Створити ярлик на робочо
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; A new path per build prevents Explorer reusing the old executable icon cache.
+; Retain earlier icons: existing pinned shortcuts can still reference them.
+Source: "..\..\archive_flutter\windows\runner\resources\app_icon.ico"; DestDir: "{app}\icons"; DestName: "archive-{#AppBuild}.ico"; Flags: ignoreversion
 
 [InstallDelete]
 ; Only the installer's own asset tree. Never delete AppData or the whole app dir.
 Type: filesandordirs; Name: "{app}\data\flutter_assets"
 
 [Icons]
-Name: "{userprograms}\Archive"; Filename: "{app}\archive_flutter.exe"
-Name: "{userdesktop}\Archive"; Filename: "{app}\archive_flutter.exe"; Tasks: desktopicon
+Name: "{userprograms}\Archive"; Filename: "{app}\archive_flutter.exe"; IconFilename: "{app}\icons\archive-{#AppBuild}.ico"; AppUserModelID: "Archive.Desktop"
+Name: "{userdesktop}\Archive"; Filename: "{app}\archive_flutter.exe"; IconFilename: "{app}\icons\archive-{#AppBuild}.ico"; AppUserModelID: "Archive.Desktop"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\archive_flutter.exe"; Description: "Відкрити Архів"; Flags: nowait runasoriginaluser

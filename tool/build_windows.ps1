@@ -47,6 +47,7 @@ try {
 } finally { Pop-Location }
 $bundle = "$root\archive_flutter\build\windows\x64\runner\Release"
 if (-not (Test-Path "$bundle\archive_flutter.exe")) { throw 'Windows x64 build output missing.' }
+& "$PSScriptRoot\test_windows_icon.ps1" -IconPath "$root\archive_flutter\windows\runner\resources\app_icon.ico" -ExecutablePath "$bundle\archive_flutter.exe"
 # Bundle the redistributable runtime app-locally, including for fresh PCs.
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $installations = @(& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
