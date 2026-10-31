@@ -38,6 +38,8 @@ Checklist after doing changes, in this order:
 - Run tests, if applicable (`dart test` in the server package)
 - Check `serverpod` MCP `tail_server_logs` and `tail_flutter_logs` for any issues.
 
+CI pins Flutter 3.44.4 (Dart 3.12.2). When the local SDK differs, verify formatting with Dart 3.12.2 as well: newer formatters can produce different output even with the same package language version. The Format workflow prints the SDK version and the exact diff on failure.
+
 If the user asks you to test the app:
 
 1. Use `get_flutter_app_dtd` (`serverpod` MCP) to get the Flutter app's DTD

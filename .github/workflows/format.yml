@@ -22,4 +22,9 @@ jobs:
 
       - name: Check formatting
         working-directory: archive_server
-        run: dart format --set-exit-if-changed .
+        run: |
+          dart --version
+          if ! dart format --set-exit-if-changed .; then
+            git diff -- .
+            exit 1
+          fi

@@ -12,10 +12,8 @@ Map<String, dynamic> payload(String raw) =>
     Map<String, dynamic>.from(jsonDecode(raw)['data'] as Map);
 
 void main() {
-  withServerpod('Durable sync, presence and account removal', (
-    sessions,
-    endpoints,
-  ) {
+  const groupName = 'Durable sync, presence and account removal';
+  withServerpod(groupName, (sessions, endpoints) {
     final session = sessions.build();
     late AuthSuccess admin, reader;
     late ArchiveMember readerMember;
@@ -25,6 +23,13 @@ void main() {
         {},
         authId: info.jwtRefreshTokenId.toString(),
       ),
+    );
+    // Presence tests use a supported desktop client, independent of published
+    // Windows releases. Version enforcement is covered by policy tests.
+    Stream<String> watch(Stream<int> heartbeat) => endpoints.archiveSync.watch(
+      signed(reader),
+      heartbeat,
+      clientPlatform: 'macos',
     );
     setUpAll(
       () => session.serverpod.initializeAuthServices(
@@ -255,9 +260,11 @@ void main() {
       () async {
         final input = StreamController<int>();
         final output = StreamController<String>();
-        final subscription = endpoints.archiveSync
-            .watch(signed(reader), input.stream)
-            .listen(output.add, onError: output.addError, onDone: output.close);
+        final subscription = watch(input.stream).listen(
+          output.add,
+          onError: output.addError,
+          onDone: output.close,
+        );
         final iterator = StreamIterator(output.stream);
         expect(await iterator.moveNext(), true);
         expect(iterator.current, 'ready');
@@ -273,9 +280,7 @@ void main() {
         expect(await connected(), 1);
         // Two open sockets for the same user AND same auth token count twice.
         final secondInput = StreamController<int>();
-        final second = StreamIterator(
-          endpoints.archiveSync.watch(signed(reader), secondInput.stream),
-        );
+        final second = StreamIterator(watch(secondInput.stream));
         expect(await second.moveNext(), true);
         expect(second.current, 'ready');
         expect(await connected(), 2);
@@ -323,9 +328,7 @@ void main() {
           throwsA(isA<ArchiveAuthException>()),
         );
         final input = StreamController<int>();
-        final iterator = StreamIterator(
-          endpoints.archiveSync.watch(signed(reader), input.stream),
-        );
+        final iterator = StreamIterator(watch(input.stream));
         expect(await iterator.moveNext(), true);
         expect(iterator.current, 'ready');
         await endpoints.account.deleteMember(signed(admin), readerMember.id!);
